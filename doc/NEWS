@@ -1,3 +1,17 @@
+neo-zig 0.1.0 - Dec 2025
+    - Initial Zig port of neo
+    - Ported from neo 0.6.1 C++ version
+    - Features:
+      - Multiple color themes (green, gold, red, blue, cyan, purple, etc.)
+      - Multiple character sets (ASCII, Katakana, Cyrillic, Greek, etc.)
+      - Terminal resize handling
+      - Async mode for varying column speeds
+      - Message display support
+    - Built with Zig build system
+    - Requires only Zig compiler and ncurses
+
+--- Original C++ version history ---
+
 neo 0.6.1 - Feb 21, 2022
     - Various build fixes for Gentoo, macOS, and FreeBSD
     - Fix a bug where droplets were not drawn correctly

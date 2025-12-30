@@ -1,53 +1,55 @@
-neo works with Linux other UNIX-like operating systems such as macOS
-and FreeBSD. Native Windows is not supported, but neo can work with WSL.
+# Installing neo-zig
 
-The following packages are required to build and run neo:
+neo-zig works on Linux and other UNIX-like operating systems such as macOS
+and FreeBSD. Native Windows is not supported, but neo-zig may work with WSL.
 
-- autoconf: neo is built using autotools
-- build-essential: make and g++ are used for building
-- libncurses-dev: neo uses ncursesw to control the terminal
+## Prerequisites
 
-Ensure that your C++ compiler supports C++11 and that your autoconf
-version is at least 2.61. g++ and clang++ should both work for
-compilation.
+1. **Zig compiler** (version 0.11.0 or later)
+   - Download from https://ziglang.org/download/
+   - Or install via package manager:
+     - Arch Linux: `pacman -S zig`
+     - macOS: `brew install zig`
 
-To build neo, run the following shell commands from the main directory:
+2. **ncurses development library**
+   - Debian/Ubuntu: `sudo apt install libncurses-dev`
+   - Arch Linux: `sudo pacman -S ncurses`
+   - Fedora: `sudo dnf install ncurses-devel`
+   - macOS: `brew install ncurses`
 
-./autogen.sh
-./configure
-make
-sudo make install
+3. **UTF-8 locale** (for Unicode character sets)
+   - Check with: `echo $LANG`
+   - Should contain "UTF-8" (e.g., "en_US.UTF-8")
 
+## Building
 
-For developers, the original author strongly recommends creating a "build"
-directory and running most of the steps from there. This avoids having
-autotools clutter the "src" directory with build artifacts.
-The .gitignore might not be ignoring everything that it needs to...
+```bash
+cd neo-zig
+zig build
+```
 
-./autogen.sh
-mkdir -p build
-cd build
-make clean make -j3
-sudo make install
+The executable will be built at `./zig-out/bin/neo-zig`.
 
+## Installing system-wide (optional)
 
-If you wish to work on neo or debug it, the following configure options
-may help:
+```bash
+sudo cp ./zig-out/bin/neo-zig /usr/local/bin/neo-zig
+```
 
-./configure CXXFLAGS='-g -O0 -Wall -Werror'
+## Uninstalling
 
+```bash
+sudo rm /usr/local/bin/neo-zig
+```
 
-Here is a build recipe for users who want a smaller install size.
-In the original author's experience, clang++ produces a slightly smaller
-executable for neo.
+## Troubleshooting
 
-./configure CXXFLAGS="-Os -march=native -mtune=native -DNDEBUG -fno-exceptions -ffunction-sections -fdata-sections -flto" LDFLAGS="-Wl,--gc-sections -flto" CXX="clang++"
-make -j3
-sudo make install-strip
+### Build fails with ncurses errors
 
+Make sure ncurses development headers are installed.
 
-To uninstall neo, run the following command from the directory where you built neo:
+### Unicode characters don't display correctly
 
-sudo make uninstall
-
-neo can also be manually uninstalled by simply deleting the installed neo executable and neo.6 man page.
+1. Ensure your locale is UTF-8: `export LANG=en_US.UTF-8`
+2. Use a terminal and font that supports the character set
+3. Recommended fonts: Noto Sans Mono, JetBrains Mono, Fira Code
