@@ -56,7 +56,7 @@ main() → initCurses() → Cloud.init() → Cloud.reset()
 ## Visual Effects
 
 The default configuration mimics the movie aesthetic:
-- **Katakana charset** - Japanese half-width characters (default)
+- **Mix charset** - 80% Katakana, 10% Cyrillic, 6% Braille, 4% ASCII (default)
 - **Distance-from-head shading** - Characters gradually fade from bright (near head) to dim (at tail)
 - **Glow effect** - Leading 3-6 characters near the head get extra brightness with bold
 - **Linear brightness falloff** - Smooth, gradual fade across the entire trail

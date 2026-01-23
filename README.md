@@ -11,8 +11,9 @@
 - Simulates the Matrix digital rain effect
 - Multiple color themes (green, gold, red, blue, cyan, purple, pink, rainbow, etc.)
 - Multiple character sets:
-  - ASCII (default)
+  - Mix (default: 80% Katakana, 10% Cyrillic, 6% Braille, 4% ASCII)
   - Katakana (Japanese)
+  - ASCII
   - Cyrillic (Russian)
   - Greek
   - Hebrew
@@ -31,7 +32,7 @@
 **neo-zig** works on Linux and other UNIX-like operating systems (macOS, FreeBSD). Windows is not supported natively but may work via WSL.
 
 Required:
-- [Zig](https://ziglang.org/download/) (0.11.0 or later)
+- [Zig](https://ziglang.org/download/) (0.14.0 or later)
 - ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch)
 
 For Unicode characters, use a font that supports the character set you want to display and ensure your locale is set to UTF-8.

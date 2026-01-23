@@ -911,22 +911,468 @@ pub const Cloud = struct {
                     self.num_color_pairs += 1;
                 }
             },
-            else => {
-                // Default to green for other colors
-                if (self.color_mode == .COLOR16) {
-                    self.num_color_pairs = 2;
-                    _ = c.init_pair(1, 10, @intCast(bg_color));
-                    _ = c.init_pair(2, 15, @intCast(bg_color));
+            .GOLD => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 400, 300, 0);       // Dark gold
+                    _ = c.init_color(231, 500, 380, 0);       // Medium-dark gold
+                    _ = c.init_color(232, 600, 450, 0);       // Medium gold
+                    _ = c.init_color(233, 700, 520, 0);       // Medium gold
+                    _ = c.init_color(234, 780, 600, 50);      // Bright gold
+                    _ = c.init_color(235, 850, 680, 100);     // Bright gold
+                    _ = c.init_color(236, 900, 750, 150);     // Very bright gold
+                    _ = c.init_color(237, 940, 820, 250);     // Near white gold
+                    _ = c.init_color(238, 960, 880, 400);     // White-gold
+                    _ = c.init_color(239, 980, 920, 550);     // Bright white-gold
+                    _ = c.init_color(240, 990, 960, 750);     // Almost white
+                    _ = c.init_color(241, 1000, 1000, 900);   // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 94, @intCast(bg_color));   // Dark orange/brown
+                    _ = c.init_pair(2, 136, @intCast(bg_color));  // Dark gold
+                    _ = c.init_pair(3, 178, @intCast(bg_color));  // Gold
+                    _ = c.init_pair(4, 214, @intCast(bg_color));  // Orange-gold
+                    _ = c.init_pair(5, 220, @intCast(bg_color));  // Bright gold
+                    _ = c.init_pair(6, 221, @intCast(bg_color));  // Bright gold
+                    _ = c.init_pair(7, 227, @intCast(bg_color));  // Yellow-gold
+                    _ = c.init_pair(8, 228, @intCast(bg_color));  // Light yellow
+                    _ = c.init_pair(9, 229, @intCast(bg_color));  // Very light yellow
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
                 } else {
-                    self.num_color_pairs = 7;
-                    // Use bright colors from 256-color palette
-                    _ = c.init_pair(1, 46, @intCast(bg_color)); // Bright green
-                    _ = c.init_pair(2, 47, @intCast(bg_color)); // Bright green
-                    _ = c.init_pair(3, 48, @intCast(bg_color)); // Bright green
-                    _ = c.init_pair(4, 49, @intCast(bg_color)); // Bright green
-                    _ = c.init_pair(5, 50, @intCast(bg_color)); // Bright green
-                    _ = c.init_pair(6, 51, @intCast(bg_color)); // Bright green
-                    _ = c.init_pair(7, 46, @intCast(bg_color)); // Bright green (head)
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 3, @intCast(bg_color));    // Yellow/brown
+                    _ = c.init_pair(2, 11, @intCast(bg_color));   // Bright yellow
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .RED => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 300, 0, 0);         // Dark red
+                    _ = c.init_color(231, 450, 0, 0);         // Medium-dark red
+                    _ = c.init_color(232, 580, 0, 0);         // Medium red
+                    _ = c.init_color(233, 700, 50, 50);       // Medium red
+                    _ = c.init_color(234, 800, 100, 100);     // Bright red
+                    _ = c.init_color(235, 880, 150, 150);     // Bright red
+                    _ = c.init_color(236, 940, 250, 250);     // Very bright red
+                    _ = c.init_color(237, 970, 400, 400);     // Pink-red
+                    _ = c.init_color(238, 990, 550, 550);     // Light red
+                    _ = c.init_color(239, 1000, 700, 700);    // Very light red
+                    _ = c.init_color(240, 1000, 850, 850);    // Near white
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 52, @intCast(bg_color));   // Very dark red
+                    _ = c.init_pair(2, 88, @intCast(bg_color));   // Dark red
+                    _ = c.init_pair(3, 124, @intCast(bg_color));  // Medium red
+                    _ = c.init_pair(4, 160, @intCast(bg_color));  // Red
+                    _ = c.init_pair(5, 196, @intCast(bg_color));  // Bright red
+                    _ = c.init_pair(6, 203, @intCast(bg_color));  // Light red
+                    _ = c.init_pair(7, 210, @intCast(bg_color));  // Pink-red
+                    _ = c.init_pair(8, 217, @intCast(bg_color));  // Light pink
+                    _ = c.init_pair(9, 224, @intCast(bg_color));  // Very light pink
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 1, @intCast(bg_color));    // Red
+                    _ = c.init_pair(2, 9, @intCast(bg_color));    // Bright red
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .BLUE => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 0, 0, 300);         // Dark blue
+                    _ = c.init_color(231, 0, 50, 450);        // Medium-dark blue
+                    _ = c.init_color(232, 0, 100, 580);       // Medium blue
+                    _ = c.init_color(233, 50, 150, 700);      // Medium blue
+                    _ = c.init_color(234, 100, 200, 800);     // Bright blue
+                    _ = c.init_color(235, 150, 300, 880);     // Bright blue
+                    _ = c.init_color(236, 250, 400, 940);     // Very bright blue
+                    _ = c.init_color(237, 400, 550, 970);     // Light blue
+                    _ = c.init_color(238, 550, 700, 990);     // Very light blue
+                    _ = c.init_color(239, 700, 820, 1000);    // Near white blue
+                    _ = c.init_color(240, 850, 920, 1000);    // Almost white
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 17, @intCast(bg_color));   // Very dark blue
+                    _ = c.init_pair(2, 18, @intCast(bg_color));   // Dark blue
+                    _ = c.init_pair(3, 19, @intCast(bg_color));   // Medium-dark blue
+                    _ = c.init_pair(4, 20, @intCast(bg_color));   // Medium blue
+                    _ = c.init_pair(5, 21, @intCast(bg_color));   // Blue
+                    _ = c.init_pair(6, 27, @intCast(bg_color));   // Bright blue
+                    _ = c.init_pair(7, 33, @intCast(bg_color));   // Light blue
+                    _ = c.init_pair(8, 39, @intCast(bg_color));   // Cyan-blue
+                    _ = c.init_pair(9, 117, @intCast(bg_color));  // Very light blue
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 4, @intCast(bg_color));    // Blue
+                    _ = c.init_pair(2, 12, @intCast(bg_color));   // Bright blue
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .CYAN => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 0, 200, 200);       // Dark cyan
+                    _ = c.init_color(231, 0, 320, 320);       // Medium-dark cyan
+                    _ = c.init_color(232, 0, 440, 440);       // Medium cyan
+                    _ = c.init_color(233, 0, 560, 560);       // Medium cyan
+                    _ = c.init_color(234, 0, 680, 680);       // Bright cyan
+                    _ = c.init_color(235, 100, 780, 780);     // Bright cyan
+                    _ = c.init_color(236, 200, 860, 860);     // Very bright cyan
+                    _ = c.init_color(237, 350, 920, 920);     // Light cyan
+                    _ = c.init_color(238, 500, 960, 960);     // Very light cyan
+                    _ = c.init_color(239, 700, 980, 980);     // Near white cyan
+                    _ = c.init_color(240, 850, 1000, 1000);   // Almost white
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 23, @intCast(bg_color));   // Very dark cyan
+                    _ = c.init_pair(2, 30, @intCast(bg_color));   // Dark cyan
+                    _ = c.init_pair(3, 37, @intCast(bg_color));   // Medium cyan
+                    _ = c.init_pair(4, 44, @intCast(bg_color));   // Cyan
+                    _ = c.init_pair(5, 51, @intCast(bg_color));   // Bright cyan
+                    _ = c.init_pair(6, 80, @intCast(bg_color));   // Light cyan
+                    _ = c.init_pair(7, 87, @intCast(bg_color));   // Very light cyan
+                    _ = c.init_pair(8, 123, @intCast(bg_color));  // Pale cyan
+                    _ = c.init_pair(9, 159, @intCast(bg_color));  // Very pale cyan
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 6, @intCast(bg_color));    // Cyan
+                    _ = c.init_pair(2, 14, @intCast(bg_color));   // Bright cyan
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .PURPLE => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 200, 0, 300);       // Dark purple
+                    _ = c.init_color(231, 300, 0, 450);       // Medium-dark purple
+                    _ = c.init_color(232, 400, 50, 580);      // Medium purple
+                    _ = c.init_color(233, 500, 100, 700);     // Medium purple
+                    _ = c.init_color(234, 600, 150, 800);     // Bright purple
+                    _ = c.init_color(235, 700, 250, 880);     // Bright purple
+                    _ = c.init_color(236, 780, 350, 940);     // Very bright purple
+                    _ = c.init_color(237, 850, 500, 970);     // Light purple
+                    _ = c.init_color(238, 900, 650, 990);     // Very light purple
+                    _ = c.init_color(239, 950, 780, 1000);    // Near white purple
+                    _ = c.init_color(240, 980, 900, 1000);    // Almost white
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 53, @intCast(bg_color));   // Very dark purple
+                    _ = c.init_pair(2, 54, @intCast(bg_color));   // Dark purple
+                    _ = c.init_pair(3, 55, @intCast(bg_color));   // Medium-dark purple
+                    _ = c.init_pair(4, 56, @intCast(bg_color));   // Medium purple
+                    _ = c.init_pair(5, 93, @intCast(bg_color));   // Purple
+                    _ = c.init_pair(6, 129, @intCast(bg_color));  // Bright purple
+                    _ = c.init_pair(7, 165, @intCast(bg_color));  // Magenta-purple
+                    _ = c.init_pair(8, 177, @intCast(bg_color));  // Light purple
+                    _ = c.init_pair(9, 183, @intCast(bg_color));  // Very light purple
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 5, @intCast(bg_color));    // Magenta
+                    _ = c.init_pair(2, 13, @intCast(bg_color));   // Bright magenta
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .PINK, .PINK2 => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 500, 100, 300);     // Dark pink
+                    _ = c.init_color(231, 600, 150, 400);     // Medium-dark pink
+                    _ = c.init_color(232, 700, 200, 480);     // Medium pink
+                    _ = c.init_color(233, 800, 280, 550);     // Medium pink
+                    _ = c.init_color(234, 880, 350, 620);     // Bright pink
+                    _ = c.init_color(235, 940, 450, 700);     // Bright pink
+                    _ = c.init_color(236, 980, 550, 780);     // Very bright pink
+                    _ = c.init_color(237, 1000, 650, 850);    // Light pink
+                    _ = c.init_color(238, 1000, 750, 900);    // Very light pink
+                    _ = c.init_color(239, 1000, 850, 950);    // Near white pink
+                    _ = c.init_color(240, 1000, 930, 980);    // Almost white
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 125, @intCast(bg_color));  // Dark pink
+                    _ = c.init_pair(2, 161, @intCast(bg_color));  // Medium-dark pink
+                    _ = c.init_pair(3, 162, @intCast(bg_color));  // Medium pink
+                    _ = c.init_pair(4, 198, @intCast(bg_color));  // Pink
+                    _ = c.init_pair(5, 199, @intCast(bg_color));  // Bright pink
+                    _ = c.init_pair(6, 206, @intCast(bg_color));  // Hot pink
+                    _ = c.init_pair(7, 213, @intCast(bg_color));  // Light pink
+                    _ = c.init_pair(8, 218, @intCast(bg_color));  // Very light pink
+                    _ = c.init_pair(9, 225, @intCast(bg_color));  // Pale pink
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 5, @intCast(bg_color));    // Magenta
+                    _ = c.init_pair(2, 13, @intCast(bg_color));   // Bright magenta
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .YELLOW => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 400, 400, 0);       // Dark yellow
+                    _ = c.init_color(231, 520, 520, 0);       // Medium-dark yellow
+                    _ = c.init_color(232, 640, 640, 0);       // Medium yellow
+                    _ = c.init_color(233, 750, 750, 0);       // Medium yellow
+                    _ = c.init_color(234, 850, 850, 0);       // Bright yellow
+                    _ = c.init_color(235, 920, 920, 100);     // Bright yellow
+                    _ = c.init_color(236, 960, 960, 250);     // Very bright yellow
+                    _ = c.init_color(237, 980, 980, 400);     // Light yellow
+                    _ = c.init_color(238, 1000, 1000, 550);   // Very light yellow
+                    _ = c.init_color(239, 1000, 1000, 700);   // Near white yellow
+                    _ = c.init_color(240, 1000, 1000, 850);   // Almost white
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 58, @intCast(bg_color));   // Dark yellow
+                    _ = c.init_pair(2, 100, @intCast(bg_color));  // Olive
+                    _ = c.init_pair(3, 142, @intCast(bg_color));  // Medium yellow
+                    _ = c.init_pair(4, 184, @intCast(bg_color));  // Yellow
+                    _ = c.init_pair(5, 226, @intCast(bg_color));  // Bright yellow
+                    _ = c.init_pair(6, 227, @intCast(bg_color));  // Light yellow
+                    _ = c.init_pair(7, 228, @intCast(bg_color));  // Very light yellow
+                    _ = c.init_pair(8, 229, @intCast(bg_color));  // Pale yellow
+                    _ = c.init_pair(9, 230, @intCast(bg_color));  // Very pale yellow
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 3, @intCast(bg_color));    // Yellow
+                    _ = c.init_pair(2, 11, @intCast(bg_color));   // Bright yellow
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .ORANGE => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 500, 200, 0);       // Dark orange
+                    _ = c.init_color(231, 620, 280, 0);       // Medium-dark orange
+                    _ = c.init_color(232, 740, 360, 0);       // Medium orange
+                    _ = c.init_color(233, 840, 440, 0);       // Medium orange
+                    _ = c.init_color(234, 920, 520, 0);       // Bright orange
+                    _ = c.init_color(235, 970, 600, 50);      // Bright orange
+                    _ = c.init_color(236, 1000, 680, 150);    // Very bright orange
+                    _ = c.init_color(237, 1000, 760, 300);    // Light orange
+                    _ = c.init_color(238, 1000, 840, 450);    // Very light orange
+                    _ = c.init_color(239, 1000, 900, 600);    // Near white orange
+                    _ = c.init_color(240, 1000, 950, 780);    // Almost white
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 94, @intCast(bg_color));   // Dark orange
+                    _ = c.init_pair(2, 130, @intCast(bg_color));  // Brown-orange
+                    _ = c.init_pair(3, 166, @intCast(bg_color));  // Medium orange
+                    _ = c.init_pair(4, 202, @intCast(bg_color));  // Orange
+                    _ = c.init_pair(5, 208, @intCast(bg_color));  // Bright orange
+                    _ = c.init_pair(6, 214, @intCast(bg_color));  // Light orange
+                    _ = c.init_pair(7, 215, @intCast(bg_color));  // Very light orange
+                    _ = c.init_pair(8, 216, @intCast(bg_color));  // Pale orange
+                    _ = c.init_pair(9, 223, @intCast(bg_color));  // Very pale orange
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 1, @intCast(bg_color));    // Red (closest to orange)
+                    _ = c.init_pair(2, 3, @intCast(bg_color));    // Yellow
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .GRAY => {
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 150, 150, 150);     // Very dark gray
+                    _ = c.init_color(231, 250, 250, 250);     // Dark gray
+                    _ = c.init_color(232, 350, 350, 350);     // Medium-dark gray
+                    _ = c.init_color(233, 450, 450, 450);     // Medium gray
+                    _ = c.init_color(234, 550, 550, 550);     // Medium gray
+                    _ = c.init_color(235, 650, 650, 650);     // Light gray
+                    _ = c.init_color(236, 730, 730, 730);     // Light gray
+                    _ = c.init_color(237, 810, 810, 810);     // Very light gray
+                    _ = c.init_color(238, 880, 880, 880);     // Near white
+                    _ = c.init_color(239, 930, 930, 930);     // Almost white
+                    _ = c.init_color(240, 970, 970, 970);     // Almost white
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 236, @intCast(bg_color));  // Very dark gray
+                    _ = c.init_pair(2, 238, @intCast(bg_color));  // Dark gray
+                    _ = c.init_pair(3, 240, @intCast(bg_color));  // Medium-dark gray
+                    _ = c.init_pair(4, 242, @intCast(bg_color));  // Medium gray
+                    _ = c.init_pair(5, 245, @intCast(bg_color));  // Medium gray
+                    _ = c.init_pair(6, 248, @intCast(bg_color));  // Light gray
+                    _ = c.init_pair(7, 250, @intCast(bg_color));  // Very light gray
+                    _ = c.init_pair(8, 252, @intCast(bg_color));  // Near white
+                    _ = c.init_pair(9, 254, @intCast(bg_color));  // Almost white
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 8, @intCast(bg_color));    // Dark gray
+                    _ = c.init_pair(2, 7, @intCast(bg_color));    // Light gray
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .VAPORWAVE => {
+                // Pink to cyan gradient
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 600, 100, 400);     // Dark magenta
+                    _ = c.init_color(231, 700, 150, 500);     // Medium magenta
+                    _ = c.init_color(232, 800, 200, 600);     // Magenta
+                    _ = c.init_color(233, 900, 300, 700);     // Bright magenta
+                    _ = c.init_color(234, 950, 400, 800);     // Pink-magenta
+                    _ = c.init_color(235, 900, 500, 900);     // Purple-pink
+                    _ = c.init_color(236, 700, 600, 950);     // Blue-purple
+                    _ = c.init_color(237, 500, 700, 1000);    // Cyan-blue
+                    _ = c.init_color(238, 300, 800, 1000);    // Cyan
+                    _ = c.init_color(239, 200, 900, 1000);    // Bright cyan
+                    _ = c.init_color(240, 400, 950, 1000);    // Light cyan
+                    _ = c.init_color(241, 1000, 1000, 1000);  // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 53, @intCast(bg_color));   // Dark purple
+                    _ = c.init_pair(2, 127, @intCast(bg_color));  // Magenta
+                    _ = c.init_pair(3, 163, @intCast(bg_color));  // Pink
+                    _ = c.init_pair(4, 199, @intCast(bg_color));  // Hot pink
+                    _ = c.init_pair(5, 171, @intCast(bg_color));  // Purple-pink
+                    _ = c.init_pair(6, 135, @intCast(bg_color));  // Blue-purple
+                    _ = c.init_pair(7, 75, @intCast(bg_color));   // Blue
+                    _ = c.init_pair(8, 39, @intCast(bg_color));   // Cyan-blue
+                    _ = c.init_pair(9, 51, @intCast(bg_color));   // Cyan
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 5, @intCast(bg_color));    // Magenta
+                    _ = c.init_pair(2, 14, @intCast(bg_color));   // Cyan
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
+                }
+            },
+            .RAINBOW => {
+                // Rainbow cycles through colors
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 1000, 0, 0);        // Red
+                    _ = c.init_color(231, 1000, 500, 0);      // Orange
+                    _ = c.init_color(232, 1000, 1000, 0);     // Yellow
+                    _ = c.init_color(233, 500, 1000, 0);      // Yellow-green
+                    _ = c.init_color(234, 0, 1000, 0);        // Green
+                    _ = c.init_color(235, 0, 1000, 500);      // Cyan-green
+                    _ = c.init_color(236, 0, 1000, 1000);     // Cyan
+                    _ = c.init_color(237, 0, 500, 1000);      // Blue-cyan
+                    _ = c.init_color(238, 0, 0, 1000);        // Blue
+                    _ = c.init_color(239, 500, 0, 1000);      // Purple
+                    _ = c.init_color(240, 1000, 0, 1000);     // Magenta
+                    _ = c.init_color(241, 1000, 0, 500);      // Pink-red
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_pair(1, 196, @intCast(bg_color));  // Red
+                    _ = c.init_pair(2, 208, @intCast(bg_color));  // Orange
+                    _ = c.init_pair(3, 226, @intCast(bg_color));  // Yellow
+                    _ = c.init_pair(4, 118, @intCast(bg_color));  // Yellow-green
+                    _ = c.init_pair(5, 46, @intCast(bg_color));   // Green
+                    _ = c.init_pair(6, 48, @intCast(bg_color));   // Cyan-green
+                    _ = c.init_pair(7, 51, @intCast(bg_color));   // Cyan
+                    _ = c.init_pair(8, 33, @intCast(bg_color));   // Blue-cyan
+                    _ = c.init_pair(9, 21, @intCast(bg_color));   // Blue
+                    _ = c.init_pair(10, 93, @intCast(bg_color));  // Purple
+                    _ = c.init_pair(11, 201, @intCast(bg_color)); // Magenta
+                    _ = c.init_pair(12, 199, @intCast(bg_color)); // Pink
+                } else {
+                    self.num_color_pairs = 6;
+                    _ = c.init_pair(1, 1, @intCast(bg_color));    // Red
+                    _ = c.init_pair(2, 3, @intCast(bg_color));    // Yellow
+                    _ = c.init_pair(3, 2, @intCast(bg_color));    // Green
+                    _ = c.init_pair(4, 6, @intCast(bg_color));    // Cyan
+                    _ = c.init_pair(5, 4, @intCast(bg_color));    // Blue
+                    _ = c.init_pair(6, 5, @intCast(bg_color));    // Magenta
+                }
+            },
+            .GREEN2, .GREEN3 => {
+                // Alternative green - brighter/different shade
+                if (self.color_mode == .TRUECOLOR) {
+                    self.num_color_pairs = 12;
+                    _ = c.init_color(230, 0, 200, 100);       // Dark teal-green
+                    _ = c.init_color(231, 0, 300, 150);       // Medium-dark
+                    _ = c.init_color(232, 0, 400, 200);       // Medium
+                    _ = c.init_color(233, 50, 520, 260);      // Medium
+                    _ = c.init_color(234, 100, 640, 320);     // Bright
+                    _ = c.init_color(235, 150, 760, 380);     // Bright
+                    _ = c.init_color(236, 220, 860, 430);     // Very bright
+                    _ = c.init_color(237, 320, 930, 500);     // Light
+                    _ = c.init_color(238, 450, 970, 600);     // Very light
+                    _ = c.init_color(239, 600, 990, 720);     // Near white
+                    _ = c.init_color(240, 780, 1000, 850);    // Almost white
+                    _ = c.init_color(241, 950, 1000, 960);    // White (head glow)
+                    var i: c_short = 1;
+                    while (i <= 12) : (i += 1) {
+                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
+                    }
+                } else if (self.color_mode == .COLOR256) {
+                    self.num_color_pairs = 10;
+                    _ = c.init_pair(1, 22, @intCast(bg_color));   // Very dark green
+                    _ = c.init_pair(2, 29, @intCast(bg_color));   // Dark green
+                    _ = c.init_pair(3, 36, @intCast(bg_color));   // Teal-green
+                    _ = c.init_pair(4, 43, @intCast(bg_color));   // Medium green
+                    _ = c.init_pair(5, 49, @intCast(bg_color));   // Bright green
+                    _ = c.init_pair(6, 86, @intCast(bg_color));   // Light green
+                    _ = c.init_pair(7, 122, @intCast(bg_color));  // Very light green
+                    _ = c.init_pair(8, 158, @intCast(bg_color));  // Pale green
+                    _ = c.init_pair(9, 194, @intCast(bg_color));  // Very pale green
+                    _ = c.init_pair(10, 15, @intCast(bg_color));  // White (head)
+                } else {
+                    self.num_color_pairs = 3;
+                    _ = c.init_pair(1, 2, @intCast(bg_color));    // Green
+                    _ = c.init_pair(2, 10, @intCast(bg_color));   // Bright green
+                    _ = c.init_pair(3, 15, @intCast(bg_color));   // White (head)
                 }
             },
         }
