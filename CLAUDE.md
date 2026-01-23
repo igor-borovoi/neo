@@ -15,7 +15,7 @@ zig build run -- -c gold --charset katakana  # Run with arguments
 zig build test         # Run the test suite
 ```
 
-**Dependencies**: Zig 0.11.0+, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch)
+**Dependencies**: Zig 0.14.0+, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch)
 
 ## Architecture
 

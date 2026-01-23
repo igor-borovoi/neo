@@ -264,16 +264,16 @@ pub const Cloud = struct {
     }
 
     pub fn deinit(self: *Cloud) void {
-        self.droplets.deinit(self.allocator);
-        self.chars.deinit(self.allocator);
-        self.user_chars.deinit(self.allocator);
-        self.char_pool.deinit(self.allocator);
-        self.glitch_pool.deinit(self.allocator);
-        self.glitch_map.deinit(self.allocator);
-        self.color_pair_map.deinit(self.allocator);
-        self.col_stat.deinit(self.allocator);
-        self.message.deinit(self.allocator);
-        self.usr_colors.deinit(self.allocator);
+        self.droplets.deinit();
+        self.chars.deinit();
+        self.user_chars.deinit();
+        self.char_pool.deinit();
+        self.glitch_pool.deinit();
+        self.glitch_map.deinit();
+        self.color_pair_map.deinit();
+        self.col_stat.deinit();
+        self.message.deinit();
+        self.usr_colors.deinit();
     }
 
     pub fn rain(self: *Cloud) void {
@@ -368,14 +368,14 @@ pub const Cloud = struct {
 
         // Resize droplets array based on terminal size
         const max_droplets = self.cols; // One potential droplet per column
-        try self.droplets.resize(self.allocator, max_droplets);
+        try self.droplets.resize(max_droplets);
         // Initialize all droplets as inactive
         for (self.droplets.items) |*droplet| {
             droplet.reset();
         }
 
         const num_droplets = @as(usize, @intFromFloat(@round(2.0 * @as(f32, @floatFromInt(self.cols)))));
-        try self.droplets.resize(self.allocator, num_droplets);
+        try self.droplets.resize(num_droplets);
         for (self.droplets.items) |*droplet| {
             droplet.* = Droplet{};
         }
@@ -384,9 +384,9 @@ pub const Cloud = struct {
         self.seed = 0x1234567;
 
         const screen_size = self.lines * self.cols;
-        try self.glitch_map.resize(self.allocator, screen_size);
-        try self.color_pair_map.resize(self.allocator, screen_size);
-        try self.col_stat.resize(self.allocator, self.cols);
+        try self.glitch_map.resize(screen_size);
+        try self.color_pair_map.resize(screen_size);
+        try self.col_stat.resize(self.cols);
 
         for (0..screen_size) |i| {
             self.glitch_map.items[i] = false; // Not used anymore, time-based glitch instead
@@ -406,8 +406,8 @@ pub const Cloud = struct {
             };
         }
 
-        try self.char_pool.resize(self.allocator, types.CHAR_POOL_SIZE);
-        try self.glitch_pool.resize(self.allocator, types.GLITCH_POOL_SIZE);
+        try self.char_pool.resize(types.CHAR_POOL_SIZE);
+        try self.glitch_pool.resize(types.GLITCH_POOL_SIZE);
 
         // Build character pool based on charset
         try self.buildCharacterPool();
@@ -478,7 +478,7 @@ pub const Cloud = struct {
     pub fn setMessage(self: *Cloud, message: []const u8) !void {
         self.message.clearRetainingCapacity();
         for (message) |char| {
-            try self.message.append(self.allocator, types.MsgChr.init(@as(u8, char)));
+            try self.message.append(types.MsgChr.init(@as(u8, char)));
         }
     }
 
@@ -832,8 +832,6 @@ pub const Cloud = struct {
         if (self.default_background) {
             bg_color = -1;
         }
-        // Force black background for Matrix effect visibility
-        bg_color = 0;
 
         switch (color) {
             .GREEN => {
@@ -933,7 +931,7 @@ pub const Cloud = struct {
             },
         }
         const screen_size = self.lines * self.cols;
-        try self.color_pair_map.resize(self.allocator, screen_size);
+        try self.color_pair_map.resize(screen_size);
         for (0..screen_size) |i| {
             self.color_pair_map.items[i] = @as(c_int, @intCast(self.randomInt(@as(u32, @intCast(self.num_color_pairs - 1))) + 1));
         }
