@@ -823,11 +823,13 @@ pub const Cloud = struct {
             return;
         }
 
-        var bg_color: c_int = 0; // Use black background (more reliable than -1 on macOS)
+        var bg_color: c_int = 16; // Default background color index
         if (self.color_mode == .COLOR16) {
             bg_color = 0;
         }
-        // Note: disabled default_background (-1) due to macOS ncurses issues
+        if (self.default_background) {
+            bg_color = -1;
+        }
 
         switch (color) {
             .GREEN => {
