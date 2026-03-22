@@ -71,7 +71,7 @@ pub fn main() !void {
         // Show droplet positions
         for (cloud.droplets.items) |droplet| {
             if (droplet.is_alive) {
-                std.debug.print("  Droplet col={} head={} tail={}\n", .{ droplet.bound_col, droplet.head_put_line, droplet.tail_put_line });
+                std.debug.print("  Droplet col={} head={d:.1} tail={d:.1}\n", .{ droplet.bound_col, droplet.head_pos, droplet.getTailPos() });
             }
         }
 

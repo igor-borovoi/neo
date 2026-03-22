@@ -184,11 +184,10 @@ pub const Cloud = struct {
                 cloud.getAttr(line_u16, self.bound_col, val, cl, &attr, dist_from_head, self.length);
 
                 // Draw character with proper attributes
-                if (attr.is_bold) {
-                    _ = c.attron(c.A_BOLD);
-                }
                 if (cloud.color_mode != .MONO and attr.color_pair > 0) {
-                    _ = c.attron(c.COLOR_PAIR(attr.color_pair));
+                    _ = c.attr_set(if (attr.is_bold) c.A_BOLD else 0, @as(c_short, @intCast(attr.color_pair)), null);
+                } else if (attr.is_bold) {
+                    _ = c.attron(c.A_BOLD);
                 }
 
                 var utf8_buf: [4]u8 = undefined;
@@ -196,12 +195,8 @@ pub const Cloud = struct {
                 utf8_buf[utf8_len] = 0;
                 _ = c.mvaddstr(@intCast(line), @intCast(self.bound_col), &utf8_buf);
 
-                if (cloud.color_mode != .MONO and attr.color_pair > 0) {
-                    _ = c.attroff(c.COLOR_PAIR(attr.color_pair));
-                }
-                if (attr.is_bold) {
-                    _ = c.attroff(c.A_BOLD);
-                }
+                // Reset attributes
+                _ = c.attr_set(0, 0, null);
             }
 
             self.last_drawn_head = head_int;
@@ -540,11 +535,13 @@ pub const Cloud = struct {
 
             const attr: c.attr_t = if (self.bold_mode == .OFF) c.A_NORMAL else c.A_BOLD;
             if (self.color_mode != .MONO) {
-                _ = c.attron(c.COLOR_PAIR(@intCast(self.num_color_pairs)));
+                _ = c.attr_set(attr, @as(c_short, @intCast(self.num_color_pairs)), null);
+            } else if (attr != 0) {
+                _ = c.attron(@as(c_int, @intCast(attr)));
             }
 
             _ = c.mvaddch(@intCast(msg_char.line), @intCast(msg_char.col), @intCast(msg_char.val));
-            _ = c.attroff(@intCast(attr));
+            _ = c.attr_set(0, 0, null);
         }
     }
 
@@ -826,13 +823,11 @@ pub const Cloud = struct {
             return;
         }
 
-        var bg_color: c_int = 16; // Default background color index
+        var bg_color: c_int = 0; // Use black background (more reliable than -1 on macOS)
         if (self.color_mode == .COLOR16) {
             bg_color = 0;
         }
-        if (self.default_background) {
-            bg_color = -1;
-        }
+        // Note: disabled default_background (-1) due to macOS ncurses issues
 
         switch (color) {
             .GREEN => {
@@ -840,22 +835,22 @@ pub const Cloud = struct {
                     // 16-step gradient using standard 256-color palette green entries.
                     // Avoids init_color() which silently fails on macOS ncurses.
                     self.num_color_pairs = 16;
-                    _ = c.init_pair(1, 22, @intCast(bg_color));  // #005f00 very dark green
-                    _ = c.init_pair(2, 28, @intCast(bg_color));  // #008700
-                    _ = c.init_pair(3, 34, @intCast(bg_color));  // #00af00
-                    _ = c.init_pair(4, 40, @intCast(bg_color));  // #00d700
-                    _ = c.init_pair(5, 46, @intCast(bg_color));  // #00ff00 pure bright green
-                    _ = c.init_pair(6, 47, @intCast(bg_color));  // #00ff5f
-                    _ = c.init_pair(7, 48, @intCast(bg_color));  // #00ff87
-                    _ = c.init_pair(8, 83, @intCast(bg_color));  // #5fff5f
-                    _ = c.init_pair(9, 84, @intCast(bg_color));  // #5fff87
+                    _ = c.init_pair(1, 22, @intCast(bg_color)); // #005f00 very dark green
+                    _ = c.init_pair(2, 28, @intCast(bg_color)); // #008700
+                    _ = c.init_pair(3, 34, @intCast(bg_color)); // #00af00
+                    _ = c.init_pair(4, 40, @intCast(bg_color)); // #00d700
+                    _ = c.init_pair(5, 46, @intCast(bg_color)); // #00ff00 pure bright green
+                    _ = c.init_pair(6, 47, @intCast(bg_color)); // #00ff5f
+                    _ = c.init_pair(7, 48, @intCast(bg_color)); // #00ff87
+                    _ = c.init_pair(8, 83, @intCast(bg_color)); // #5fff5f
+                    _ = c.init_pair(9, 84, @intCast(bg_color)); // #5fff87
                     _ = c.init_pair(10, 118, @intCast(bg_color)); // #87ff00
                     _ = c.init_pair(11, 119, @intCast(bg_color)); // #87ff5f
                     _ = c.init_pair(12, 120, @intCast(bg_color)); // #87ff87
                     _ = c.init_pair(13, 121, @intCast(bg_color)); // #87ffaf
                     _ = c.init_pair(14, 157, @intCast(bg_color)); // #afffaf
                     _ = c.init_pair(15, 194, @intCast(bg_color)); // #d7ffd7
-                    _ = c.init_pair(16, 15, @intCast(bg_color));  // white head glow
+                    _ = c.init_pair(16, 15, @intCast(bg_color)); // white head glow
                 } else if (self.color_mode == .COLOR256) {
                     // 256-color mode - use more color pairs for smoother gradient
                     self.num_color_pairs = 12;
