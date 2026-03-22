@@ -103,4 +103,25 @@ pub fn build(b: *std.Build) void {
     const test_cmd = b.addRunArtifact(test_exe);
     const test_step = b.step("test", "Run tests without ncurses");
     test_step.dependOn(&test_cmd.step);
+
+    // Benchmark step
+    const bench_module = b.createModule(.{
+        .root_source_file = b.path("src/benchmark.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const bench_exe = b.addExecutable(.{
+        .name = "benchmark-neo",
+        .root_module = bench_module,
+    });
+
+    linkNcurses(b, bench_exe);
+
+    const bench_cmd = b.addRunArtifact(bench_exe);
+    if (b.args) |args| {
+        bench_cmd.addArgs(args);
+    }
+    const bench_step = b.step("bench", "Run performance benchmark");
+    bench_step.dependOn(&bench_cmd.step);
 }

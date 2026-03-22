@@ -9,12 +9,13 @@ const types = @import("types.zig");
 pub const Cloud = struct {
     allocator: std.mem.Allocator,
     droplets: std.ArrayList(Droplet),
+    active_droplets: std.ArrayList(usize),
     lines: u16 = 25,
     cols: u16 = 80,
     charset: types.Charset = .MIX,
     chars: std.ArrayList(u21),
     user_chars: std.ArrayList(u21),
-    char_pool: std.ArrayList(u21),
+    char_pool: std.ArrayList(types.CharEntry),
     glitch_pool: std.ArrayList(u21),
     glitch_pool_idx: usize = 0,
     glitch_map: std.ArrayList(bool),
@@ -22,6 +23,7 @@ pub const Cloud = struct {
     droplet_density: f32 = 1.0,
     droplets_per_sec: f32 = 5.0,
     col_stat: std.ArrayList(types.ColumnStatus),
+    current_attr: ?types.CharAttr = null,
 
     chars_per_sec: f32 = 4.0, // Slower speed for classic Matrix effect
     shading_mode: types.ShadingMode = .RANDOM,
@@ -60,6 +62,7 @@ pub const Cloud = struct {
     next_glitch_interval_ns: u64 = 0, // time until next glitch (calculated)
 
     seed: u64,
+    initial_seed: u64,
 
     color_mode: types.ColorMode = .MONO,
     num_color_pairs: c_int = 7,
@@ -139,6 +142,11 @@ pub const Cloud = struct {
                 const erase_end = @min(tail_int, lines_i32);
                 while (erase_line < erase_end) : (erase_line += 1) {
                     if (erase_line >= 0) {
+                        // Reset attributes before erasing
+                        if (cloud.current_attr != null) {
+                            _ = c.attr_set(0, 0, null);
+                            cloud.current_attr = null;
+                        }
                         _ = c.mvaddch(@intCast(erase_line), @intCast(self.bound_col), ' ');
                     }
                 }
@@ -160,7 +168,7 @@ pub const Cloud = struct {
             while (line <= visible_end) : (line += 1) {
                 const line_u16 = @as(u16, @intCast(line));
                 const is_glitched = cloud.isGlitched(line_u16, self.bound_col);
-                const val = cloud.getChar(line_u16, self.char_pool_idx);
+                const char_entry = cloud.getChar(line_u16, self.char_pool_idx);
 
                 // Determine character location type
                 var cl = types.CharLoc.MIDDLE;
@@ -181,22 +189,27 @@ pub const Cloud = struct {
                 // Get attributes based on position in droplet
                 var attr = types.CharAttr{ .color_pair = 0, .is_bold = false };
                 const dist_from_head = @as(u16, @intCast(head_int - line));
-                cloud.getAttr(line_u16, self.bound_col, val, cl, &attr, dist_from_head, self.length);
+                cloud.getAttr(line_u16, self.bound_col, char_entry.codepoint, cl, &attr, dist_from_head, self.length);
 
-                // Draw character with proper attributes
-                if (cloud.color_mode != .MONO and attr.color_pair > 0) {
-                    _ = c.attr_set(if (attr.is_bold) c.A_BOLD else 0, @as(c_short, @intCast(attr.color_pair)), null);
-                } else if (attr.is_bold) {
-                    _ = c.attron(c.A_BOLD);
+                // Only update attributes if they changed (attribute batching)
+                const needs_attr_change = if (cloud.current_attr) |ca|
+                    ca.color_pair != attr.color_pair or ca.is_bold != attr.is_bold
+                else
+                    true;
+
+                if (needs_attr_change) {
+                    if (cloud.color_mode != .MONO and attr.color_pair > 0) {
+                        _ = c.attr_set(if (attr.is_bold) c.A_BOLD else 0, @as(c_short, @intCast(attr.color_pair)), null);
+                    } else if (attr.is_bold) {
+                        _ = c.attron(c.A_BOLD);
+                    } else {
+                        _ = c.attr_set(0, 0, null);
+                    }
+                    cloud.current_attr = attr;
                 }
 
-                var utf8_buf: [4]u8 = undefined;
-                const utf8_len = std.unicode.utf8Encode(val, &utf8_buf) catch 1;
-                utf8_buf[utf8_len] = 0;
-                _ = c.mvaddstr(@intCast(line), @intCast(self.bound_col), &utf8_buf);
-
-                // Reset attributes
-                _ = c.attr_set(0, 0, null);
+                // Use pre-encoded UTF-8 bytes
+                _ = c.mvaddstr(@intCast(line), @intCast(self.bound_col), &char_entry.utf8);
             }
 
             self.last_drawn_head = head_int;
@@ -208,15 +221,17 @@ pub const Cloud = struct {
         var self: Cloud = undefined;
         self.allocator = allocator;
         self.droplets = std.ArrayList(Droplet).initCapacity(allocator, 0) catch @panic("OOM");
+        self.active_droplets = std.ArrayList(usize).initCapacity(allocator, 0) catch @panic("OOM");
         self.chars = std.ArrayList(u21).initCapacity(allocator, 0) catch @panic("OOM");
         self.user_chars = std.ArrayList(u21).initCapacity(allocator, 0) catch @panic("OOM");
-        self.char_pool = std.ArrayList(u21).initCapacity(allocator, 0) catch @panic("OOM");
+        self.char_pool = std.ArrayList(types.CharEntry).initCapacity(allocator, 0) catch @panic("OOM");
         self.glitch_pool = std.ArrayList(u21).initCapacity(allocator, 0) catch @panic("OOM");
         self.glitch_map = std.ArrayList(bool).initCapacity(allocator, 0) catch @panic("OOM");
         self.color_pair_map = std.ArrayList(c_int).initCapacity(allocator, 0) catch @panic("OOM");
         self.col_stat = std.ArrayList(types.ColumnStatus).initCapacity(allocator, 0) catch @panic("OOM");
         self.message = std.ArrayList(types.MsgChr).initCapacity(allocator, 0) catch @panic("OOM");
         self.usr_colors = std.ArrayList(types.ColorContent).initCapacity(allocator, 0) catch @panic("OOM");
+        self.current_attr = null;
 
         self.lines = 25;
         self.cols = 80;
@@ -254,12 +269,14 @@ pub const Cloud = struct {
         self.color_mode = cm;
         self.num_color_pairs = 7;
         self.seed = 0x1234567;
+        self.initial_seed = 0x1234567;
 
         return self;
     }
 
     pub fn deinit(self: *Cloud) void {
         self.droplets.deinit(self.allocator);
+        self.active_droplets.deinit(self.allocator);
         self.chars.deinit(self.allocator);
         self.user_chars.deinit(self.allocator);
         self.char_pool.deinit(self.allocator);
@@ -269,6 +286,11 @@ pub const Cloud = struct {
         self.col_stat.deinit(self.allocator);
         self.message.deinit(self.allocator);
         self.usr_colors.deinit(self.allocator);
+    }
+
+    pub fn setSeed(self: *Cloud, s: u64) void {
+        self.seed = s;
+        self.initial_seed = s;
     }
 
     pub fn rain(self: *Cloud) void {
@@ -288,17 +310,28 @@ pub const Cloud = struct {
         }
 
         // Update and draw all active droplets
-        for (self.droplets.items) |*droplet| {
-            if (!droplet.is_alive) continue;
+        // Use index-based iteration to allow removal during iteration
+        var i: usize = 0;
+        while (i < self.active_droplets.items.len) {
+            const droplet_idx = self.active_droplets.items[i];
+            const droplet = &self.droplets.items[droplet_idx];
 
             droplet.advance(cur_time);
             // Always draw even when the droplet just died so the erase pass runs
             // and clears any characters remaining at the bottom of the screen.
             droplet.draw(cur_time, self.force_draw_everything);
+
             if (!droplet.is_alive) {
                 // Droplet died, allow spawning in this column
                 self.col_stat.items[droplet.bound_col].num_droplets -= 1;
                 self.col_stat.items[droplet.bound_col].can_spawn = true;
+
+                // Remove from active list using swap-with-last
+                self.active_droplets.items[i] = self.active_droplets.items[self.active_droplets.items.len - 1];
+                _ = self.active_droplets.pop();
+                // Don't increment i since we swapped a new element to position i
+            } else {
+                i += 1;
             }
         }
 
@@ -376,8 +409,12 @@ pub const Cloud = struct {
             droplet.* = Droplet{};
         }
 
+        // Initialize active droplets tracking (same capacity as droplets)
+        try self.active_droplets.resize(self.allocator, num_droplets);
+        self.active_droplets.clearRetainingCapacity();
+
         // Reset seed
-        self.seed = 0x1234567;
+        self.seed = self.initial_seed;
 
         const screen_size = self.lines * self.cols;
         try self.glitch_map.resize(self.allocator, screen_size);
@@ -636,7 +673,16 @@ pub const Cloud = struct {
                 char_idx -= range_size;
             }
 
-            self.char_pool.items[i] = selected_char;
+            self.char_pool.items[i] = .{
+                .codepoint = selected_char,
+                .utf8 = blk: {
+                    var buf: [4]u8 = undefined;
+                    const len = std.unicode.utf8Encode(selected_char, &buf) catch 1;
+                    buf[len] = 0;
+                    break :blk buf;
+                },
+                .utf8_len = std.unicode.utf8CodepointSequenceLength(selected_char) catch 1,
+            };
         }
     }
 
@@ -746,7 +792,16 @@ pub const Cloud = struct {
                 selected_char = group.ascii[idx];
             }
 
-            self.char_pool.items[i] = selected_char;
+            self.char_pool.items[i] = .{
+                .codepoint = selected_char,
+                .utf8 = blk: {
+                    var buf: [4]u8 = undefined;
+                    const len = std.unicode.utf8Encode(selected_char, &buf) catch 1;
+                    buf[len] = 0;
+                    break :blk buf;
+                },
+                .utf8_len = std.unicode.utf8CodepointSequenceLength(selected_char) catch 1,
+            };
         }
     }
 
@@ -774,7 +829,7 @@ pub const Cloud = struct {
             }
 
             // Find inactive droplet
-            for (self.droplets.items) |*droplet| {
+            for (self.droplets.items, 0..) |*droplet, idx| {
                 if (!droplet.is_alive) {
                     // Fill droplet with proper parameters
                     droplet.reset();
@@ -802,6 +857,10 @@ pub const Cloud = struct {
                     droplet.activate(cur_time);
                     col_status.can_spawn = false;
                     col_status.num_droplets += 1;
+
+                    // Add to active droplets list
+                    self.active_droplets.appendAssumeCapacity(idx);
+
                     spawned += 1;
                     break;
                 }
@@ -1445,14 +1504,14 @@ pub const Cloud = struct {
         return (line == self.active_glitch_line and col == self.active_glitch_col);
     }
 
-    pub fn getChar(self: *const Cloud, line: u16, char_pool_idx: u16) u21 {
+    pub fn getChar(self: *const Cloud, line: u16, char_pool_idx: u16) *const types.CharEntry {
         const pool_idx = @as(usize, char_pool_idx) % self.char_pool.items.len;
         const line_val = @as(usize, line);
         // Prime stride and XOR mixing to avoid sequential/alphabetical patterns
         const stride: usize = 37;
         const mix = (pool_idx *% 7) ^ (line_val *% 13);
         const char_idx = (pool_idx +% line_val *% stride +% mix) % self.char_pool.items.len;
-        return self.char_pool.items[char_idx];
+        return &self.char_pool.items[char_idx];
     }
 
     pub fn setColumnSpawn(self: *Cloud, col: u16, b: bool) void {

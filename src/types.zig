@@ -81,6 +81,12 @@ pub const CharAttr = struct {
     is_bold: bool,
 };
 
+pub const CharEntry = struct {
+    codepoint: u21,
+    utf8: [4]u8,
+    utf8_len: u3,
+};
+
 pub const CharLoc = enum {
     MIDDLE,
     TAIL,

@@ -26,6 +26,7 @@
 - Handles terminal resizing
 - Async mode for varying column speeds
 - Display custom messages
+- Benchmark mode for performance testing
 
 ## Prerequisites
 
@@ -84,6 +85,10 @@ The binary will be at `./zig-out/bin/neo-zig`.
 # Display a message
 ./zig-out/bin/neo-zig --message="WAKE UP NEO"
 
+# Benchmark mode (run for N seconds and show performance stats)
+./zig-out/bin/neo-zig --benchmark=5
+./zig-out/bin/neo-zig --benchmark=10 --seed=42
+
 # Combine options
 ./zig-out/bin/neo-zig --color=gold --charset=katakana --async -S=3.0
 ```
@@ -105,6 +110,8 @@ The binary will be at `./zig-out/bin/neo-zig`.
 -m, --message=STR      Display a message
 -a, --async            Asynchronous scroll speed per column
     --charset=STR      Set character set
+    --benchmark=SECS   Run in benchmark mode for N seconds
+    --seed=NUM         Set random seed for reproducible runs
 ```
 
 ## Screenshots

@@ -259,6 +259,8 @@ fn printHelp(appName: []const u8) noreturn {
     std.debug.print("  -a, --async            asynchronous scroll speed\n", .{});
     std.debug.print("      --charset=STR      character set: katakana, mix, ascii, cyrillic, braille, greek, etc.\n", .{});
     std.debug.print("                         mix = Japanese 60%%, Cyrillic 20%%, Braille 12%%, ASCII 8%%\n", .{});
+    std.debug.print("      --benchmark=SECS   run benchmark for specified seconds\n", .{});
+    std.debug.print("      --seed=NUM         set random seed for reproducible results\n", .{});
     std.debug.print("\n", .{});
     std.debug.print("If you see a blank screen, try --colormode=0 for monochrome mode.\n", .{});
     std.debug.print("This is a Zig port of the original C++ neo program.\n", .{});
@@ -270,7 +272,7 @@ pub fn main() !void {
     // Simple argument parsing
     var args_iter = try std.process.argsWithAllocator(std.heap.page_allocator);
     defer args_iter.deinit();
-    _ = args_iter.next(); // Skip program name
+    const program_name = args_iter.next() orelse "neo-zig";
 
     var usr_color_mode: types.ColorMode = .INVALID;
     var target_fps: f32 = 20.0; // Balanced animation rate
@@ -280,6 +282,8 @@ pub fn main() !void {
     var requested_charset: ?types.Charset = null;
     var async_mode_requested = false;
     var requested_message: ?[]const u8 = null;
+    var benchmark_seconds: ?f32 = null;
+    var seed: ?u64 = null;
 
     while (args_iter.next()) |arg| {
         if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
@@ -382,11 +386,39 @@ pub fn main() !void {
                 std.debug.print("Unsupported charset specified: {s}\n", .{charset_str});
                 std.process.exit(1);
             }
+        } else if (std.mem.eql(u8, arg, "--benchmark")) {
+            // Handle --benchmark SECS (space separated)
+            benchmark_seconds = if (args_iter.next()) |next_arg|
+                std.fmt.parseFloat(f32, next_arg) catch null
+            else
+                null;
+        } else if (std.mem.startsWith(u8, arg, "--benchmark=")) {
+            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
+            const bench_str = arg[eq_idx + 1 ..];
+            benchmark_seconds = try std.fmt.parseFloat(f32, bench_str);
+        } else if (std.mem.eql(u8, arg, "--benchmark")) {
+            // Handle space-separated format
+            const next_arg = args_iter.next() orelse {
+                std.debug.print("Error: --benchmark requires a value\n", .{});
+                std.process.exit(1);
+            };
+            benchmark_seconds = try std.fmt.parseFloat(f32, next_arg);
+        } else if (std.mem.startsWith(u8, arg, "--seed=")) {
+            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
+            const seed_str = arg[eq_idx + 1 ..];
+            seed = try std.fmt.parseInt(u64, seed_str, 10);
+        } else if (std.mem.eql(u8, arg, "--seed")) {
+            // Handle space-separated format
+            const next_arg = args_iter.next() orelse {
+                std.debug.print("Error: --seed requires a value\n", .{});
+                std.process.exit(1);
+            };
+            seed = try std.fmt.parseInt(u64, next_arg, 10);
         }
     }
 
     if (show_help) {
-        printHelp(args_iter.next().?);
+        printHelp(program_name);
     }
 
     if (show_version) {
@@ -455,12 +487,36 @@ pub fn main() !void {
         try cloud.setMessage(message);
     }
 
+    // Apply seed if provided (for reproducible benchmarks)
+    if (seed) |s| {
+        cloud.setSeed(s);
+    }
+
     // Initialize - must call reset() first to get terminal dimensions
     try cloud.reset();
 
     // Initialize colors after reset (needs terminal dimensions)
     const color_to_use = requested_color orelse .GREEN;
     try cloud.setColor(color_to_use);
+
+    // Benchmark tracking
+    const benchmark_mode = benchmark_seconds != null;
+    var bench_start_time: ?std.time.Instant = null;
+    var bench_frame_count: u64 = 0;
+    var bench_frame_times: std.ArrayList(u64) = undefined;
+    var bench_droplet_counts: std.ArrayList(u32) = undefined;
+    var bench_peak_droplets: u32 = 0;
+
+    if (benchmark_mode) {
+        bench_frame_times = std.ArrayList(u64).initCapacity(std.heap.page_allocator, 1000) catch @panic("OOM");
+        bench_droplet_counts = std.ArrayList(u32).initCapacity(std.heap.page_allocator, 1000) catch @panic("OOM");
+    }
+    defer {
+        if (benchmark_mode) {
+            bench_frame_times.deinit(std.heap.page_allocator);
+            bench_droplet_counts.deinit(std.heap.page_allocator);
+        }
+    }
 
     // Main loop
     const target_period_ns = @as(u64, @intFromFloat(@round(1.0 / target_fps * 1.0e9)));
@@ -474,7 +530,53 @@ pub fn main() !void {
         checkTerminalResize(&cloud);
 
         const cur_time = std.time.Instant.now() catch unreachable;
+
+        // Initialize benchmark start time on first frame
+        if (benchmark_mode and bench_start_time == null) {
+            bench_start_time = cur_time;
+        }
+
         cloud.rain();
+
+        // Benchmark overlay
+        if (benchmark_mode) {
+            const frame_start = std.time.Instant.now() catch unreachable;
+
+            bench_frame_count += 1;
+
+            const active_droplets: u32 = @intCast(cloud.active_droplets.items.len);
+            if (active_droplets > bench_peak_droplets) {
+                bench_peak_droplets = active_droplets;
+            }
+
+            // Calculate elapsed benchmark time
+            const bench_elapsed_ns = cur_time.since(bench_start_time.?);
+            const bench_elapsed_sec = @as(f64, @floatFromInt(bench_elapsed_ns)) / 1.0e9;
+            const bench_total_sec = benchmark_seconds.?;
+
+            // Calculate current FPS
+            const frame_time_ns = cur_time.since(prev_time);
+            const current_fps = if (frame_time_ns > 0) 1.0e9 / @as(f64, @floatFromInt(frame_time_ns)) else 0.0;
+
+            // Draw benchmark overlay at start of first row with reverse video
+            _ = c.attr_set(c.A_BOLD | c.A_REVERSE, 0, null);
+            const fps_c: f64 = current_fps;
+            const elapsed_c: f64 = bench_elapsed_sec;
+            const total_c: f64 = bench_total_sec;
+            const droplets_c: c_int = @intCast(active_droplets);
+            _ = c.mvprintw(0, 0, " FPS:%6.0f D:%3d %.1f/%.0fs ", fps_c, droplets_c, elapsed_c, total_c);
+
+            // Track frame time (excluding overlay drawing)
+            const frame_end = std.time.Instant.now() catch unreachable;
+            const actual_frame_ns = frame_end.since(frame_start);
+            bench_frame_times.append(std.heap.page_allocator, actual_frame_ns) catch {};
+            bench_droplet_counts.append(std.heap.page_allocator, active_droplets) catch {};
+
+            // Check if benchmark is complete
+            if (bench_elapsed_sec >= bench_total_sec) {
+                cloud.raining = false;
+            }
+        }
 
         if (c.refresh() != c.OK) {
             die("refresh() failed\n", .{});
@@ -482,15 +584,90 @@ pub fn main() !void {
 
         const elapsed = cur_time.since(prev_time);
 
-        var calc_delay: u64 = 0;
-        if (elapsed < target_period_ns) {
-            calc_delay = target_period_ns - elapsed;
+        if (!benchmark_mode) {
+            var calc_delay: u64 = 0;
+            if (elapsed < target_period_ns) {
+                calc_delay = target_period_ns - elapsed;
+            }
+
+            const cur_delay = (7 * prev_delay + calc_delay) / 8;
+            std.Thread.sleep(cur_delay);
+            prev_delay = cur_delay;
         }
 
-        const cur_delay = (7 * prev_delay + calc_delay) / 8;
-        std.Thread.sleep(cur_delay);
-
         prev_time = cur_time;
-        prev_delay = cur_delay;
+    }
+
+    // Show benchmark results
+    if (benchmark_mode and bench_frame_count > 0) {
+        _ = c.endwin();
+
+        // Calculate statistics
+        var total_frame_ns: u64 = 0;
+        var min_frame_ns: u64 = std.math.maxInt(u64);
+        var max_frame_ns: u64 = 0;
+        var total_droplets: u64 = 0;
+
+        for (bench_frame_times.items) |ft| {
+            total_frame_ns += ft;
+            if (ft < min_frame_ns) min_frame_ns = ft;
+            if (ft > max_frame_ns) max_frame_ns = ft;
+        }
+        for (bench_droplet_counts.items) |dc| {
+            total_droplets += dc;
+        }
+
+        const avg_frame_ns = total_frame_ns / bench_frame_count;
+        const avg_frame_ms = @as(f64, @floatFromInt(avg_frame_ns)) / 1.0e6;
+        const min_frame_ms = @as(f64, @floatFromInt(min_frame_ns)) / 1.0e6;
+        const max_frame_ms = @as(f64, @floatFromInt(max_frame_ns)) / 1.0e6;
+        const avg_fps = 1000.0 / avg_frame_ms;
+        const min_fps = 1000.0 / max_frame_ms;
+        const max_fps = 1000.0 / min_frame_ms;
+        const avg_droplets = @as(f64, @floatFromInt(total_droplets)) / @as(f64, @floatFromInt(bench_frame_count));
+
+        // Calculate actual duration from benchmark timing
+        const bench_end_time = std.time.Instant.now() catch unreachable;
+        const actual_duration_ns = bench_end_time.since(bench_start_time.?);
+        const actual_duration = @as(f64, @floatFromInt(actual_duration_ns)) / 1.0e9;
+
+        const cols: u32 = @intCast(c.COLS);
+        const lines: u32 = @intCast(c.LINES);
+
+        var bench_buf: [512]u8 = undefined;
+        var bench_fba = std.heap.FixedBufferAllocator.init(&bench_buf);
+
+        const printRow = struct {
+            fn printRow(fba: *std.heap.FixedBufferAllocator, comptime fmt: []const u8, args: anytype) void {
+                fba.end_index = 0; // Reset buffer for each row
+                const content = std.fmt.allocPrint(fba.allocator(), fmt, args) catch return;
+                const content_len = std.unicode.utf8CountCodepoints(content) catch content.len;
+                const padding = if (content_len < 58) 58 - content_len else 0;
+                const spaces = " " ** 80;
+                std.debug.print("║{s}{s}║\n", .{ content, spaces[0..padding] });
+            }
+        }.printRow;
+
+        std.debug.print("\n", .{});
+        std.debug.print("╔══════════════════════════════════════════════════════════╗\n", .{});
+        std.debug.print("║                  BENCHMARK RESULTS                       ║\n", .{});
+        std.debug.print("╠══════════════════════════════════════════════════════════╣\n", .{});
+        printRow(&bench_fba, "  Terminal:      {d} cols × {d} lines", .{ cols, lines });
+        printRow(&bench_fba, "  Duration:      {d:.1} seconds", .{actual_duration});
+        if (seed) |s| {
+            printRow(&bench_fba, "  Seed:          {d}", .{s});
+        } else {
+            printRow(&bench_fba, "  Seed:          (random)", .{});
+        }
+        std.debug.print("╠══════════════════════════════════════════════════════════╣\n", .{});
+        printRow(&bench_fba, "  Frames:        {d}", .{bench_frame_count});
+        printRow(&bench_fba, "  Average FPS:   {d:.1}", .{avg_fps});
+        printRow(&bench_fba, "  Min FPS:       {d:.1}", .{min_fps});
+        printRow(&bench_fba, "  Max FPS:       {d:.1}", .{max_fps});
+        printRow(&bench_fba, "  Frame time:    {d:.2} ms avg ({d:.2} - {d:.2} ms)", .{ avg_frame_ms, min_frame_ms, max_frame_ms });
+        std.debug.print("╠══════════════════════════════════════════════════════════╣\n", .{});
+        printRow(&bench_fba, "  Droplets:      {d:.1} avg / {d} peak", .{ avg_droplets, bench_peak_droplets });
+        std.debug.print("╚══════════════════════════════════════════════════════════╝\n", .{});
+        std.debug.print("\n", .{});
     }
 }
