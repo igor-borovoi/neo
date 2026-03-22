@@ -297,12 +297,13 @@ pub const Cloud = struct {
             if (!droplet.is_alive) continue;
 
             droplet.advance(cur_time);
+            // Always draw even when the droplet just died so the erase pass runs
+            // and clears any characters remaining at the bottom of the screen.
+            droplet.draw(cur_time, self.force_draw_everything);
             if (!droplet.is_alive) {
                 // Droplet died, allow spawning in this column
                 self.col_stat.items[droplet.bound_col].num_droplets -= 1;
                 self.col_stat.items[droplet.bound_col].can_spawn = true;
-            } else {
-                droplet.draw(cur_time, self.force_draw_everything);
             }
         }
 
@@ -836,34 +837,25 @@ pub const Cloud = struct {
         switch (color) {
             .GREEN => {
                 if (self.color_mode == .TRUECOLOR) {
-                    // Rich 16-step gradient from dark green to bright white-green for Kitty/truecolor terminals
-                    // Colors go from very dim (pair 1) to glowing white-green (pair 16)
+                    // 16-step gradient using standard 256-color palette green entries.
+                    // Avoids init_color() which silently fails on macOS ncurses.
                     self.num_color_pairs = 16;
-
-                    // Define custom RGB colors (ncurses uses 0-1000 scale)
-                    // Dark to bright green gradient with white glow at the end
-                    _ = c.init_color(230, 0, 150, 0); // Very dark green
-                    _ = c.init_color(231, 0, 220, 0); // Dark green
-                    _ = c.init_color(232, 0, 300, 20); // Dark green
-                    _ = c.init_color(233, 20, 380, 40); // Medium-dark green
-                    _ = c.init_color(234, 40, 460, 60); // Medium green
-                    _ = c.init_color(235, 60, 540, 80); // Medium green
-                    _ = c.init_color(236, 80, 620, 100); // Medium-bright green
-                    _ = c.init_color(237, 100, 700, 130); // Bright green
-                    _ = c.init_color(238, 130, 780, 170); // Bright green
-                    _ = c.init_color(239, 170, 850, 220); // Very bright green
-                    _ = c.init_color(240, 220, 900, 280); // Bright green with hint of white
-                    _ = c.init_color(241, 300, 940, 360); // Brighter
-                    _ = c.init_color(242, 400, 970, 460); // Near-white green
-                    _ = c.init_color(243, 550, 990, 600); // White-green glow
-                    _ = c.init_color(244, 750, 1000, 780); // Bright white-green
-                    _ = c.init_color(245, 950, 1000, 960); // Almost white (head glow)
-
-                    // Create color pairs
-                    var i: c_short = 1;
-                    while (i <= 16) : (i += 1) {
-                        _ = c.init_pair(i, 229 + i, @intCast(bg_color));
-                    }
+                    _ = c.init_pair(1, 22, @intCast(bg_color));  // #005f00 very dark green
+                    _ = c.init_pair(2, 28, @intCast(bg_color));  // #008700
+                    _ = c.init_pair(3, 34, @intCast(bg_color));  // #00af00
+                    _ = c.init_pair(4, 40, @intCast(bg_color));  // #00d700
+                    _ = c.init_pair(5, 46, @intCast(bg_color));  // #00ff00 pure bright green
+                    _ = c.init_pair(6, 47, @intCast(bg_color));  // #00ff5f
+                    _ = c.init_pair(7, 48, @intCast(bg_color));  // #00ff87
+                    _ = c.init_pair(8, 83, @intCast(bg_color));  // #5fff5f
+                    _ = c.init_pair(9, 84, @intCast(bg_color));  // #5fff87
+                    _ = c.init_pair(10, 118, @intCast(bg_color)); // #87ff00
+                    _ = c.init_pair(11, 119, @intCast(bg_color)); // #87ff5f
+                    _ = c.init_pair(12, 120, @intCast(bg_color)); // #87ff87
+                    _ = c.init_pair(13, 121, @intCast(bg_color)); // #87ffaf
+                    _ = c.init_pair(14, 157, @intCast(bg_color)); // #afffaf
+                    _ = c.init_pair(15, 194, @intCast(bg_color)); // #d7ffd7
+                    _ = c.init_pair(16, 15, @intCast(bg_color));  // white head glow
                 } else if (self.color_mode == .COLOR256) {
                     // 256-color mode - use more color pairs for smoother gradient
                     self.num_color_pairs = 12;

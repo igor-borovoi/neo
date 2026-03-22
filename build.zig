@@ -42,7 +42,11 @@ fn findNcursesLib(allocator: std.mem.Allocator) ?[]const u8 {
 }
 
 fn linkNcurses(b: *std.Build, compile: *std.Build.Step.Compile) void {
-    if (findNcursesLib(b.allocator)) |lib_path| {
+    const is_macos = compile.rootModuleTarget().os.tag == .macos;
+    if (is_macos) {
+        // macOS ships ncurses with wide char support built-in; no separate ncursesw
+        compile.linkSystemLibrary("ncurses");
+    } else if (findNcursesLib(b.allocator)) |lib_path| {
         // Linker script detected — link versioned .so directly + tinfo
         compile.addObjectFile(.{ .cwd_relative = lib_path });
         compile.linkSystemLibrary("tinfo");
