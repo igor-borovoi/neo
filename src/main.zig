@@ -487,10 +487,13 @@ pub fn main() !void {
         try cloud.setMessage(message);
     }
 
-    // Apply seed if provided (for reproducible benchmarks)
-    if (seed) |s| {
-        cloud.setSeed(s);
-    }
+    // Apply seed: use provided seed or generate random one
+    const actual_seed: u64 = if (seed) |s| s else blk: {
+        var buf: [8]u8 = undefined;
+        std.crypto.random.bytes(&buf);
+        break :blk @bitCast(buf);
+    };
+    cloud.setSeed(actual_seed);
 
     // Initialize - must call reset() first to get terminal dimensions
     try cloud.reset();
@@ -564,7 +567,7 @@ pub fn main() !void {
             const elapsed_c: f64 = bench_elapsed_sec;
             const total_c: f64 = bench_total_sec;
             const droplets_c: c_int = @intCast(active_droplets);
-            _ = c.mvprintw(0, 0, " FPS:%6.0f D:%3d %.1f/%.0fs ", fps_c, droplets_c, elapsed_c, total_c);
+            _ = c.mvprintw(0, 0, " %5.0f/s D:%3d %.1f/%.0fs ", fps_c, droplets_c, elapsed_c, total_c);
 
             // Track frame time (excluding overlay drawing)
             const frame_end = std.time.Instant.now() catch unreachable;
@@ -621,15 +624,13 @@ pub fn main() !void {
         const avg_frame_ms = @as(f64, @floatFromInt(avg_frame_ns)) / 1.0e6;
         const min_frame_ms = @as(f64, @floatFromInt(min_frame_ns)) / 1.0e6;
         const max_frame_ms = @as(f64, @floatFromInt(max_frame_ns)) / 1.0e6;
-        const avg_fps = 1000.0 / avg_frame_ms;
-        const min_fps = 1000.0 / max_frame_ms;
-        const max_fps = 1000.0 / min_frame_ms;
         const avg_droplets = @as(f64, @floatFromInt(total_droplets)) / @as(f64, @floatFromInt(bench_frame_count));
 
         // Calculate actual duration from benchmark timing
         const bench_end_time = std.time.Instant.now() catch unreachable;
         const actual_duration_ns = bench_end_time.since(bench_start_time.?);
         const actual_duration = @as(f64, @floatFromInt(actual_duration_ns)) / 1.0e9;
+        const throughput = @as(f64, @floatFromInt(bench_frame_count)) / actual_duration;
 
         const cols: u32 = @intCast(c.COLS);
         const lines: u32 = @intCast(c.LINES);
@@ -654,17 +655,14 @@ pub fn main() !void {
         std.debug.print("╠══════════════════════════════════════════════════════════╣\n", .{});
         printRow(&bench_fba, "  Terminal:      {d} cols × {d} lines", .{ cols, lines });
         printRow(&bench_fba, "  Duration:      {d:.1} seconds", .{actual_duration});
-        if (seed) |s| {
-            printRow(&bench_fba, "  Seed:          {d}", .{s});
-        } else {
-            printRow(&bench_fba, "  Seed:          (random)", .{});
-        }
+        printRow(&bench_fba, "  Seed:          {d}", .{actual_seed});
         std.debug.print("╠══════════════════════════════════════════════════════════╣\n", .{});
         printRow(&bench_fba, "  Frames:        {d}", .{bench_frame_count});
-        printRow(&bench_fba, "  Average FPS:   {d:.1}", .{avg_fps});
-        printRow(&bench_fba, "  Min FPS:       {d:.1}", .{min_fps});
-        printRow(&bench_fba, "  Max FPS:       {d:.1}", .{max_fps});
-        printRow(&bench_fba, "  Frame time:    {d:.2} ms avg ({d:.2} - {d:.2} ms)", .{ avg_frame_ms, min_frame_ms, max_frame_ms });
+        printRow(&bench_fba, "  Throughput:    {d:.1}/s", .{throughput});
+        const avg_frame_us = avg_frame_ms * 1000.0;
+        const min_frame_us = min_frame_ms * 1000.0;
+        const max_frame_us = max_frame_ms * 1000.0;
+        printRow(&bench_fba, "  Render time:   {d:.1} µs avg ({d:.1} - {d:.1} µs)", .{ avg_frame_us, min_frame_us, max_frame_us });
         std.debug.print("╠══════════════════════════════════════════════════════════╣\n", .{});
         printRow(&bench_fba, "  Droplets:      {d:.1} avg / {d} peak", .{ avg_droplets, bench_peak_droplets });
         std.debug.print("╚══════════════════════════════════════════════════════════╝\n", .{});
