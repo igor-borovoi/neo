@@ -261,6 +261,8 @@ fn printHelp(appName: []const u8) noreturn {
     std.debug.print("                         mix = Japanese 60%%, Cyrillic 20%%, Braille 12%%, ASCII 8%%\n", .{});
     std.debug.print("      --benchmark=SECS   run benchmark for specified seconds\n", .{});
     std.debug.print("      --seed=NUM         set random seed for reproducible results\n", .{});
+    std.debug.print("      --no-glitch        disable glitch animation\n", .{});
+    std.debug.print("      --droplets=NUM     set maximum number of droplets (default: based on terminal width)\n", .{});
     std.debug.print("\n", .{});
     std.debug.print("If you see a blank screen, try --colormode=0 for monochrome mode.\n", .{});
     std.debug.print("This is a Zig port of the original C++ neo program.\n", .{});
@@ -284,6 +286,8 @@ pub fn main() !void {
     var requested_message: ?[]const u8 = null;
     var benchmark_seconds: ?f32 = null;
     var seed: ?u64 = null;
+    var disable_glitch = false;
+    var droplet_count: ?u32 = null;
 
     while (args_iter.next()) |arg| {
         if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
@@ -414,6 +418,19 @@ pub fn main() !void {
                 std.process.exit(1);
             };
             seed = try std.fmt.parseInt(u64, next_arg, 10);
+        } else if (std.mem.eql(u8, arg, "--no-glitch")) {
+            disable_glitch = true;
+        } else if (std.mem.startsWith(u8, arg, "--droplets=")) {
+            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
+            const droplets_str = arg[eq_idx + 1 ..];
+            droplet_count = try std.fmt.parseInt(u32, droplets_str, 10);
+        } else if (std.mem.eql(u8, arg, "--droplets")) {
+            // Handle space-separated format
+            const next_arg = args_iter.next() orelse {
+                std.debug.print("Error: --droplets requires a value\n", .{});
+                std.process.exit(1);
+            };
+            droplet_count = try std.fmt.parseInt(u32, next_arg, 10);
         }
     }
 
@@ -480,6 +497,16 @@ pub fn main() !void {
     // Apply async mode
     if (async_mode_requested) {
         cloud.setAsync(true);
+    }
+
+    // Apply glitch disable
+    if (disable_glitch) {
+        cloud.glitchy = false;
+    }
+
+    // Apply droplet count limit
+    if (droplet_count) |count| {
+        cloud.max_droplets_per_column = @as(u8, @intCast(@min(count, 255)));
     }
 
     // Apply message

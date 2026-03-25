@@ -43,7 +43,7 @@ pub const Cloud = struct {
     die_early_pct: f32 = 0.3333333,
     linger_low_ms: u16 = 1,
     linger_high_ms: u16 = 3000,
-    max_droplets_per_column: u8 = 3,
+    max_droplets_per_column: u8 = 2,
     default_to_ascii: bool = false,
     message: std.ArrayList(types.MsgChr),
 
@@ -256,7 +256,7 @@ pub const Cloud = struct {
         self.die_early_pct = 0.15; // Only 15% die early (was 33%)
         self.linger_low_ms = 1;
         self.linger_high_ms = 2000;
-        self.max_droplets_per_column = 4; // Allow more droplets per column
+        self.max_droplets_per_column = 3; // Allow more droplets per column
         self.default_to_ascii = def2ascii;
         // Initialize time-based glitch system
         self.glitch_interval_base_ms = 30000; // 30 seconds
@@ -373,9 +373,11 @@ pub const Cloud = struct {
     }
 
     fn randomFloat(self: *Cloud) f32 {
-        // Simple linear congruential generator for demonstration
-        self.seed = self.seed *% 1103515245 +% 12345;
-        return @as(f32, @floatFromInt(self.seed % 1000)) / 1000.0;
+        // Xorshift32 - much better distribution than simple LCG
+        self.seed ^= self.seed << 13;
+        self.seed ^= self.seed >> 17;
+        self.seed ^= self.seed << 5;
+        return @as(f32, @floatFromInt(self.seed & 0xFFFFFF)) / 16777216.0;
     }
 
     fn randomInt(self: *Cloud, max: u32) u32 {

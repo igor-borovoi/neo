@@ -25,6 +25,10 @@ zig build test         # Run the test suite
 - **cloud.zig** - `Cloud` struct that orchestrates all droplets and manages the rain effect
 - **droplet.zig** - `Droplet` struct representing individual falling character streams
 - **types.zig** - Enums and type definitions (Charset, Color, ColorMode, etc.)
+- **benchmark.zig** - Performance benchmarking utilities
+- **test.zig** - Test suite
+- **test_simple.zig** - Simple unit tests
+- **matrix_simple.zig** - Simplified matrix implementation for testing
 
 ### Object Pool Pattern
 
@@ -64,9 +68,9 @@ The default configuration mimics the movie aesthetic:
 ### Truecolor Support (Kitty, iTerm2, etc.)
 In truecolor terminals, the effect uses a 16-step RGB gradient:
 - Dark green at the tail → bright green → white-green glow at the head
-- Custom RGB colors defined in `setColor()` at cloud.zig:679
+- Custom RGB colors defined in `setColor()` at cloud.zig:875
 
-The `getAttr()` function in cloud.zig:800 controls all brightness/color calculations based on `ShadingMode`.
+The `getAttr()` function in cloud.zig:1442 controls all brightness/color calculations based on `ShadingMode`.
 
 ## Interactive Controls
 
