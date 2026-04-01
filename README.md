@@ -11,13 +11,15 @@
 - Simulates the Matrix digital rain effect
 - Multiple color themes (green, gold, red, blue, cyan, purple, pink, rainbow, etc.)
 - Multiple character sets:
-  - Mix (default: 80% Katakana, 10% Cyrillic, 6% Braille, 4% ASCII)
+  - Mix (default: 60% Katakana, 20% Cyrillic, 12% Braille, 8% ASCII)
   - Katakana (Japanese)
-  - ASCII
+  - ASCII, Extended ASCII
+  - English (letters, digits, punctuation)
   - Cyrillic (Russian)
   - Greek
   - Hebrew
   - Arabic
+  - Devanagari (Hindi)
   - Braille
   - Runic
   - Binary (0s and 1s)
@@ -58,18 +60,35 @@ The binary will be at `./zig-out/bin/neo-zig`.
 
 ```bash
 # Colors
-./zig-out/bin/neo-zig --color=green    # Default
+./zig-out/bin/neo-zig --color=green     # Default
+./zig-out/bin/neo-zig --color=green2
+./zig-out/bin/neo-zig --color=green3
 ./zig-out/bin/neo-zig --color=gold
 ./zig-out/bin/neo-zig --color=red
 ./zig-out/bin/neo-zig --color=blue
 ./zig-out/bin/neo-zig --color=cyan
+./zig-out/bin/neo-zig --color=yellow
+./zig-out/bin/neo-zig --color=orange
 ./zig-out/bin/neo-zig --color=purple
+./zig-out/bin/neo-zig --color=pink
+./zig-out/bin/neo-zig --color=pink2
+./zig-out/bin/neo-zig --color=gray
 ./zig-out/bin/neo-zig --color=rainbow
+./zig-out/bin/neo-zig --color=vaporwave
 
 # Character sets
+./zig-out/bin/neo-zig --charset=mix        # Default: Japanese 60%, Cyrillic 20%, Braille 12%, ASCII 8%
 ./zig-out/bin/neo-zig --charset=katakana
+./zig-out/bin/neo-zig --charset=ascii
+./zig-out/bin/neo-zig --charset=extended
+./zig-out/bin/neo-zig --charset=english
+./zig-out/bin/neo-zig --charset=digits
+./zig-out/bin/neo-zig --charset=punc
 ./zig-out/bin/neo-zig --charset=cyrillic
 ./zig-out/bin/neo-zig --charset=greek
+./zig-out/bin/neo-zig --charset=arabic
+./zig-out/bin/neo-zig --charset=hebrew
+./zig-out/bin/neo-zig --charset=devanagari
 ./zig-out/bin/neo-zig --charset=binary
 ./zig-out/bin/neo-zig --charset=hex
 ./zig-out/bin/neo-zig --charset=braille
@@ -89,6 +108,12 @@ The binary will be at `./zig-out/bin/neo-zig`.
 ./zig-out/bin/neo-zig --benchmark=5
 ./zig-out/bin/neo-zig --benchmark=10 --seed=42
 
+# Disable glitch animation
+./zig-out/bin/neo-zig --no-glitch
+
+# Limit droplets per column
+./zig-out/bin/neo-zig --droplets=2
+
 # Combine options
 ./zig-out/bin/neo-zig --color=gold --charset=katakana --async -S=3.0
 ```
@@ -104,7 +129,7 @@ The binary will be at `./zig-out/bin/neo-zig`.
 ```
 -h, --help             Show help message
 -V, --version          Print version
--S, --speed=NUM        Set scroll speed (default: 4.0)
+-S, --speed=NUM        Set scroll speed (default: 8.0)
 -c, --color=COLOR      Set color theme
     --colormode=MODE   Set color mode (0=mono, 16, 256, 32=truecolor)
 -m, --message=STR      Display a message
@@ -112,6 +137,8 @@ The binary will be at `./zig-out/bin/neo-zig`.
     --charset=STR      Set character set
     --benchmark=SECS   Run in benchmark mode for N seconds
     --seed=NUM         Set random seed for reproducible runs
+    --no-glitch        Disable glitch animation
+    --droplets=NUM     Set max droplets per column (default: 3)
 ```
 
 ## Screenshots

@@ -293,6 +293,11 @@ pub const Cloud = struct {
         self.initial_seed = s;
     }
 
+    pub fn setCharset(self: *Cloud, new_charset: types.Charset) void {
+        self.charset = new_charset;
+        self.buildCharacterPool() catch {};
+    }
+
     pub fn rain(self: *Cloud) void {
         if (self.pause) return;
 
@@ -637,8 +642,8 @@ pub const Cloud = struct {
             ranges[num_ranges] = .{ .start = 0x2800, .end = 0x28FF };
             num_ranges += 1;
         } else if (charset == .RUNIC) {
-            // Runic: U+16A0 to U+16F0
-            ranges[num_ranges] = .{ .start = 0x16A0, .end = 0x16F0 };
+            // Runic: U+16A0 to U+16EA (actual Runic letters, avoiding undefined code points)
+            ranges[num_ranges] = .{ .start = 0x16A0, .end = 0x16EA };
             num_ranges += 1;
         } else if (charset == .DEVANAGARI) {
             // Devanagari: U+0904 to U+0939

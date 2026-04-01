@@ -9,6 +9,91 @@ const types = @import("types.zig");
 const cloud_mod = @import("cloud.zig");
 const Cloud = cloud_mod.Cloud;
 
+const CHARSET_CYCLE = [_]types.Charset{
+    .MIX,
+    .KATAKANA,
+    .DEFAULT,
+    .EXTENDED_DEFAULT,
+    .ENGLISH_LETTERS,
+    .ENGLISH_DIGITS,
+    .ENGLISH_PUNCTUATION,
+    .CYRILLIC,
+    .GREEK,
+    .ARABIC,
+    .HEBREW,
+    .DEVANAGARI,
+    .BRAILLE,
+    .BINARY,
+    .HEX,
+};
+
+fn charsetName(charset: types.Charset) []const u8 {
+    return switch (charset) {
+        .MIX => "mix",
+        .KATAKANA => "katakana",
+        .DEFAULT => "ascii",
+        .EXTENDED_DEFAULT => "extended",
+        .ENGLISH_LETTERS => "english",
+        .ENGLISH_DIGITS => "digits",
+        .ENGLISH_PUNCTUATION => "punc",
+        .CYRILLIC => "cyrillic",
+        .GREEK => "greek",
+        .ARABIC => "arabic",
+        .HEBREW => "hebrew",
+        .DEVANAGARI => "devanagari",
+        .BRAILLE => "braille",
+        .RUNIC => "runic",
+        .BINARY => "binary",
+        .HEX => "hex",
+        else => "unknown",
+    };
+}
+
+fn findCharsetIndex(charset: types.Charset) ?usize {
+    for (CHARSET_CYCLE, 0..) |cs, i| {
+        if (cs == charset) return i;
+    }
+    return null;
+}
+
+fn cycleCharsetForward(charset: types.Charset) types.Charset {
+    if (findCharsetIndex(charset)) |idx| {
+        return CHARSET_CYCLE[(idx + 1) % CHARSET_CYCLE.len];
+    }
+    return .MIX;
+}
+
+fn cycleCharsetBackward(charset: types.Charset) types.Charset {
+    if (findCharsetIndex(charset)) |idx| {
+        return CHARSET_CYCLE[(idx + CHARSET_CYCLE.len - 1) % CHARSET_CYCLE.len];
+    }
+    return .MIX;
+}
+
+const NotificationState = struct {
+    message: [64]u8 = undefined,
+    message_len: usize = 0,
+    end_time_ns: u64 = 0,
+
+    fn setMessage(self: *NotificationState, msg: []const u8, duration_sec: u64) void {
+        const copy_len = @min(msg.len, self.message.len - 1);
+        @memcpy(self.message[0..copy_len], msg[0..copy_len]);
+        self.message[copy_len] = 0;
+        self.message_len = copy_len;
+        self.end_time_ns = @as(u64, @intCast(std.time.nanoTimestamp())) + duration_sec * 1_000_000_000;
+    }
+
+    fn isActive(self: *const NotificationState) bool {
+        if (self.end_time_ns == 0 or self.message_len == 0) return false;
+        const now_ns = @as(u64, @intCast(std.time.nanoTimestamp()));
+        return now_ns < self.end_time_ns;
+    }
+
+    fn getMessage(self: *const NotificationState) []const u8 {
+        return self.message[0..self.message_len];
+    }
+};
+
 pub fn die(comptime fmt: []const u8, args: anytype) noreturn {
     std.debug.print(fmt, args);
     std.process.exit(1);
@@ -198,7 +283,7 @@ fn simpleMatrixMode(target_fps: f32) !void {
     }
 }
 
-fn handleInput(cloud: *Cloud) bool {
+fn handleInput(cloud: *Cloud, target_fps: *f32, notification: *NotificationState) bool {
     const ch = c.getch();
     if (ch == -1) return false;
 
@@ -214,6 +299,30 @@ fn handleInput(cloud: *Cloud) bool {
         },
         'q', 27 => {
             cloud.raining = false;
+        },
+        c.KEY_UP => {
+            target_fps.* = @min(target_fps.* + 1.0, 100.0);
+            var buf: [64]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, " Speed: {d:.0} ", .{target_fps.*}) catch return true;
+            notification.setMessage(msg, 5);
+        },
+        c.KEY_DOWN => {
+            target_fps.* = @max(target_fps.* - 1.0, 1.0);
+            var buf: [64]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, " Speed: {d:.0} ", .{target_fps.*}) catch return true;
+            notification.setMessage(msg, 5);
+        },
+        c.KEY_RIGHT => {
+            cloud.setCharset(cycleCharsetForward(cloud.charset));
+            var buf: [64]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, " Charset: {s} ", .{charsetName(cloud.charset)}) catch return true;
+            notification.setMessage(msg, 5);
+        },
+        c.KEY_LEFT => {
+            cloud.setCharset(cycleCharsetBackward(cloud.charset));
+            var buf: [64]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, " Charset: {s} ", .{charsetName(cloud.charset)}) catch return true;
+            notification.setMessage(msg, 5);
         },
         else => {},
     }
@@ -549,12 +658,13 @@ pub fn main() !void {
     }
 
     // Main loop
-    const target_period_ns = @as(u64, @intFromFloat(@round(1.0 / target_fps * 1.0e9)));
+    var notification = NotificationState{};
+    var notification_was_active = false;
     var prev_time = std.time.Instant.now() catch unreachable;
     var prev_delay: u64 = 5;
 
     while (cloud.raining) {
-        _ = handleInput(&cloud);
+        _ = handleInput(&cloud, &target_fps, &notification);
 
         // Check for terminal resize every frame
         checkTerminalResize(&cloud);
@@ -568,8 +678,21 @@ pub fn main() !void {
 
         cloud.rain();
 
-        // Benchmark overlay
-        if (benchmark_mode) {
+        // Notification overlay (takes precedence over benchmark)
+        const notification_active = notification.isActive();
+        if (notification_active) {
+            _ = c.move(0, 0);
+            _ = c.clrtoeol();
+            _ = c.attr_set(c.A_BOLD | c.A_REVERSE, 0, null);
+            const msg = notification.getMessage();
+            _ = c.mvprintw(0, 0, " %s ", msg.ptr);
+            notification_was_active = true;
+        } else if (notification_was_active) {
+            _ = c.move(0, 0);
+            _ = c.clrtoeol();
+            notification_was_active = false;
+        } else if (benchmark_mode) {
+            // Benchmark overlay
             const frame_start = std.time.Instant.now() catch unreachable;
 
             bench_frame_count += 1;
@@ -586,7 +709,7 @@ pub fn main() !void {
 
             // Calculate current FPS
             const frame_time_ns = cur_time.since(prev_time);
-            const current_fps = if (frame_time_ns > 0) 1.0e9 / @as(f64, @floatFromInt(frame_time_ns)) else 0.0;
+            const current_fps = if (frame_time_ns > 1) 1.0e9 / @as(f64, @floatFromInt(frame_time_ns)) else 1.0;
 
             // Draw benchmark overlay at start of first row with reverse video
             _ = c.attr_set(c.A_BOLD | c.A_REVERSE, 0, null);
@@ -594,7 +717,7 @@ pub fn main() !void {
             const elapsed_c: f64 = bench_elapsed_sec;
             const total_c: f64 = bench_total_sec;
             const droplets_c: c_int = @intCast(active_droplets);
-            _ = c.mvprintw(0, 0, " %5.0f/s D:%3d %.1f/%.0fs ", fps_c, droplets_c, elapsed_c, total_c);
+            _ = c.mvprintw(0, 5, " %5.0f/s D:%3d %.1f/%.0fs ", fps_c, droplets_c, elapsed_c, total_c);
 
             // Track frame time (excluding overlay drawing)
             const frame_end = std.time.Instant.now() catch unreachable;
@@ -615,9 +738,10 @@ pub fn main() !void {
         const elapsed = cur_time.since(prev_time);
 
         if (!benchmark_mode) {
-            var calc_delay: u64 = 0;
-            if (elapsed < target_period_ns) {
-                calc_delay = target_period_ns - elapsed;
+            var calc_delay: u64 = 5;
+            const current_target_ns = @as(u64, @intFromFloat(@round(1.0 / target_fps * 1.0e9)));
+            if (elapsed < current_target_ns) {
+                calc_delay = current_target_ns - elapsed;
             }
 
             const cur_delay = (7 * prev_delay + calc_delay) / 8;
