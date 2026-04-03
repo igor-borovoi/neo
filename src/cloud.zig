@@ -136,10 +136,12 @@ pub const Cloud = struct {
             const tail_int = @as(i32, @intFromFloat(@floor(self.getTailPos())));
             const lines_i32 = @as(i32, cloud.lines);
 
-            // Clear characters that the tail has passed (erase old trail)
-            if (self.last_drawn_tail >= 0 and self.last_drawn_tail < lines_i32) {
-                var erase_line = self.last_drawn_tail;
-                const erase_end = @min(tail_int, lines_i32);
+            // Clear characters that the tail has passed (erase old trail).
+            // Characters are drawn from tail_int+1 to head_int, so the first
+            // drawn line is last_drawn_tail+1. Erase up to tail_int+1 (inclusive).
+            if (self.last_drawn_tail + 1 >= 0 and self.last_drawn_tail < lines_i32) {
+                var erase_line = self.last_drawn_tail + 1;
+                const erase_end = @min(tail_int + 1, lines_i32);
                 while (erase_line < erase_end) : (erase_line += 1) {
                     if (erase_line >= 0) {
                         // Reset attributes before erasing

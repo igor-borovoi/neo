@@ -13,9 +13,10 @@ zig build              # Build the executable (output: ./zig-out/bin/neo-zig)
 zig build run          # Build and run with default settings
 zig build run -- -c gold --charset katakana  # Run with arguments
 zig build test         # Run the test suite
+zig build bench        # Run performance benchmark
 ```
 
-**Dependencies**: Zig 0.14.0+, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch)
+**Dependencies**: Zig 0.14.0+, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch, built-in on macOS)
 
 ## Architecture
 
@@ -77,3 +78,5 @@ The `getAttr()` function in cloud.zig:1442 controls all brightness/color calcula
 - `q` or `ESC` - Quit
 - `p` - Pause/Resume
 - `Space` - Reset the rain effect
+- `↑` / `↓` - Increase/decrease speed (FPS, 1–100)
+- `←` / `→` - Cycle through charsets
