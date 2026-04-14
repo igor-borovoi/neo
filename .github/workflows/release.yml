@@ -20,8 +20,6 @@ jobs:
             target-name: linux-aarch64
           - os: macos-latest
             target-name: macos-aarch64
-          - os: macos-12
-            target-name: macos-x86_64
 
     runs-on: ${{ matrix.os }}
     name: Build ${{ matrix.target-name }}
@@ -88,5 +86,4 @@ jobs:
           \`\`\`" \
             dist/neo-zig-linux-x86_64 \
             dist/neo-zig-linux-aarch64 \
-            dist/neo-zig-macos-aarch64 \
-            dist/neo-zig-macos-x86_64
+            dist/neo-zig-macos-aarch64
