@@ -34,9 +34,9 @@ jobs:
           ZIG_VERSION=0.15.2
           OS=$(uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
           ARCH=$(uname -m | sed 's/arm64/aarch64/')
-          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${OS}-${ARCH}-${ZIG_VERSION}.tar.xz" \
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${ARCH}-${OS}-${ZIG_VERSION}.tar.xz" \
             | tar -xJ
-          sudo mv "zig-${OS}-${ARCH}-${ZIG_VERSION}" /usr/local/zig
+          sudo mv "zig-${ARCH}-${OS}-${ZIG_VERSION}" /usr/local/zig
           echo "/usr/local/zig" >> "$GITHUB_PATH"
 
       - name: Install ncurses (Linux only)
