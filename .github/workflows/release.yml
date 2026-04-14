@@ -30,9 +30,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Zig
-        uses: mlugg/setup-zig@v1
-        with:
-          version: '0.15.2'
+        run: |
+          ZIG_VERSION=0.15.2
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
+          ARCH=$(uname -m | sed 's/arm64/aarch64/')
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${OS}-${ARCH}-${ZIG_VERSION}.tar.xz" \
+            | tar -xJ
+          sudo mv "zig-${OS}-${ARCH}-${ZIG_VERSION}" /usr/local/zig
+          echo "/usr/local/zig" >> "$GITHUB_PATH"
 
       - name: Install ncurses (Linux only)
         if: runner.os == 'Linux'
