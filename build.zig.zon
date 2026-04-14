@@ -2,7 +2,7 @@
     .name = .neo_zig,
     .version = "0.7.0",
     .fingerprint = 0xa85f40d47130cc74,
-    .minimum_zig_version = "0.15.0",
+    .minimum_zig_version = "0.15.2",
     .paths = .{
         "build.zig",
         "build.zig.zon",
