@@ -404,13 +404,30 @@ pub fn main() !void {
             show_help = true;
         } else if (std.mem.eql(u8, arg, "-V") or std.mem.eql(u8, arg, "--version")) {
             show_version = true;
-        } else if (std.mem.startsWith(u8, arg, "-S=") or std.mem.startsWith(u8, arg, "--speed=")) {
-            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
-            const speed_str = arg[eq_idx + 1 ..];
-            target_fps = try std.fmt.parseFloat(f32, speed_str);
-        } else if (std.mem.startsWith(u8, arg, "-c=") or std.mem.startsWith(u8, arg, "--color=")) {
-            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
-            const color_str = arg[eq_idx + 1 ..];
+        } else if (std.mem.eql(u8, arg, "-S") or std.mem.eql(u8, arg, "--speed") or
+            std.mem.startsWith(u8, arg, "-S=") or std.mem.startsWith(u8, arg, "--speed="))
+        {
+            const speed_str = if (std.mem.indexOfScalar(u8, arg, '=')) |eq|
+                arg[eq + 1 ..]
+            else
+                args_iter.next() orelse {
+                    std.debug.print("Error: {s} requires a value\n", .{arg});
+                    std.process.exit(1);
+                };
+            target_fps = std.fmt.parseFloat(f32, speed_str) catch {
+                std.debug.print("Error: invalid speed value: {s}\n", .{speed_str});
+                std.process.exit(1);
+            };
+        } else if (std.mem.eql(u8, arg, "-c") or std.mem.eql(u8, arg, "--color") or
+            std.mem.startsWith(u8, arg, "-c=") or std.mem.startsWith(u8, arg, "--color="))
+        {
+            const color_str = if (std.mem.indexOfScalar(u8, arg, '=')) |eq|
+                arg[eq + 1 ..]
+            else
+                args_iter.next() orelse {
+                    std.debug.print("Error: {s} requires a value\n", .{arg});
+                    std.process.exit(1);
+                };
 
             if (std.mem.eql(u8, color_str, "green")) {
                 requested_color = .GREEN;
@@ -443,9 +460,14 @@ pub fn main() !void {
             } else if (std.mem.eql(u8, color_str, "vaporwave")) {
                 requested_color = .VAPORWAVE;
             }
-        } else if (std.mem.startsWith(u8, arg, "--colormode=")) {
-            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
-            const mode_str = arg[eq_idx + 1 ..];
+        } else if (std.mem.eql(u8, arg, "--colormode") or std.mem.startsWith(u8, arg, "--colormode=")) {
+            const mode_str = if (std.mem.indexOfScalar(u8, arg, '=')) |eq|
+                arg[eq + 1 ..]
+            else
+                args_iter.next() orelse {
+                    std.debug.print("Error: {s} requires a value\n", .{arg});
+                    std.process.exit(1);
+                };
             if (std.mem.eql(u8, mode_str, "0") or std.mem.eql(u8, mode_str, "mono")) {
                 usr_color_mode = .MONO;
             } else if (std.mem.eql(u8, mode_str, "16")) {
@@ -455,14 +477,26 @@ pub fn main() !void {
             } else if (std.mem.eql(u8, mode_str, "32")) {
                 usr_color_mode = .TRUECOLOR;
             }
-        } else if (std.mem.startsWith(u8, arg, "-m=") or std.mem.startsWith(u8, arg, "--message=")) {
-            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
-            requested_message = arg[eq_idx + 1 ..];
+        } else if (std.mem.eql(u8, arg, "-m") or std.mem.eql(u8, arg, "--message") or
+            std.mem.startsWith(u8, arg, "-m=") or std.mem.startsWith(u8, arg, "--message="))
+        {
+            requested_message = if (std.mem.indexOfScalar(u8, arg, '=')) |eq|
+                arg[eq + 1 ..]
+            else
+                args_iter.next() orelse {
+                    std.debug.print("Error: {s} requires a value\n", .{arg});
+                    std.process.exit(1);
+                };
         } else if (std.mem.eql(u8, arg, "-a") or std.mem.eql(u8, arg, "--async")) {
             async_mode_requested = true;
-        } else if (std.mem.startsWith(u8, arg, "--charset=")) {
-            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
-            const charset_str = arg[eq_idx + 1 ..];
+        } else if (std.mem.eql(u8, arg, "--charset") or std.mem.startsWith(u8, arg, "--charset=")) {
+            const charset_str = if (std.mem.indexOfScalar(u8, arg, '=')) |eq|
+                arg[eq + 1 ..]
+            else
+                args_iter.next() orelse {
+                    std.debug.print("Error: {s} requires a value\n", .{arg});
+                    std.process.exit(1);
+                };
 
             if (std.mem.eql(u8, charset_str, "ascii")) {
                 requested_charset = .DEFAULT;
@@ -500,47 +534,35 @@ pub fn main() !void {
                 std.debug.print("Unsupported charset specified: {s}\n", .{charset_str});
                 std.process.exit(1);
             }
-        } else if (std.mem.eql(u8, arg, "--benchmark")) {
-            // Handle --benchmark SECS (space separated)
-            benchmark_seconds = if (args_iter.next()) |next_arg|
-                std.fmt.parseFloat(f32, next_arg) catch null
+        } else if (std.mem.eql(u8, arg, "--benchmark") or std.mem.startsWith(u8, arg, "--benchmark=")) {
+            const bench_str = if (std.mem.indexOfScalar(u8, arg, '=')) |eq|
+                arg[eq + 1 ..]
             else
-                null;
-        } else if (std.mem.startsWith(u8, arg, "--benchmark=")) {
-            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
-            const bench_str = arg[eq_idx + 1 ..];
-            benchmark_seconds = try std.fmt.parseFloat(f32, bench_str);
-        } else if (std.mem.eql(u8, arg, "--benchmark")) {
-            // Handle space-separated format
-            const next_arg = args_iter.next() orelse {
-                std.debug.print("Error: --benchmark requires a value\n", .{});
-                std.process.exit(1);
-            };
-            benchmark_seconds = try std.fmt.parseFloat(f32, next_arg);
-        } else if (std.mem.startsWith(u8, arg, "--seed=")) {
-            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
-            const seed_str = arg[eq_idx + 1 ..];
+                args_iter.next() orelse {
+                    std.debug.print("Error: --benchmark requires a value\n", .{});
+                    std.process.exit(1);
+                };
+            benchmark_seconds = std.fmt.parseFloat(f32, bench_str) catch null;
+        } else if (std.mem.eql(u8, arg, "--seed") or std.mem.startsWith(u8, arg, "--seed=")) {
+            const seed_str = if (std.mem.indexOfScalar(u8, arg, '=')) |eq|
+                arg[eq + 1 ..]
+            else
+                args_iter.next() orelse {
+                    std.debug.print("Error: --seed requires a value\n", .{});
+                    std.process.exit(1);
+                };
             seed = try std.fmt.parseInt(u64, seed_str, 10);
-        } else if (std.mem.eql(u8, arg, "--seed")) {
-            // Handle space-separated format
-            const next_arg = args_iter.next() orelse {
-                std.debug.print("Error: --seed requires a value\n", .{});
-                std.process.exit(1);
-            };
-            seed = try std.fmt.parseInt(u64, next_arg, 10);
         } else if (std.mem.eql(u8, arg, "--no-glitch")) {
             disable_glitch = true;
-        } else if (std.mem.startsWith(u8, arg, "--droplets=")) {
-            const eq_idx = std.mem.indexOfScalar(u8, arg, '=') orelse arg.len;
-            const droplets_str = arg[eq_idx + 1 ..];
+        } else if (std.mem.eql(u8, arg, "--droplets") or std.mem.startsWith(u8, arg, "--droplets=")) {
+            const droplets_str = if (std.mem.indexOfScalar(u8, arg, '=')) |eq|
+                arg[eq + 1 ..]
+            else
+                args_iter.next() orelse {
+                    std.debug.print("Error: --droplets requires a value\n", .{});
+                    std.process.exit(1);
+                };
             droplet_count = try std.fmt.parseInt(u32, droplets_str, 10);
-        } else if (std.mem.eql(u8, arg, "--droplets")) {
-            // Handle space-separated format
-            const next_arg = args_iter.next() orelse {
-                std.debug.print("Error: --droplets requires a value\n", .{});
-                std.process.exit(1);
-            };
-            droplet_count = try std.fmt.parseInt(u32, next_arg, 10);
         }
     }
 
