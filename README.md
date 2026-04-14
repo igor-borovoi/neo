@@ -41,7 +41,7 @@ curl -fsSL https://raw.githubusercontent.com/igor-borovoi/neo/main/install.sh | 
 Or run without installing:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/igor-borovoi/neo/main/install.sh | NEO_NO_INSTALL=1 bash
+NEO_NO_INSTALL=1 bash <(curl -fsSL https://raw.githubusercontent.com/igor-borovoi/neo/main/install.sh)
 ```
 
 Supports macOS (ARM & Intel) and Linux (x86\_64 & aarch64).

@@ -102,7 +102,7 @@ fi
 
 # --- Run in-place (no install) ---
 if [ "${NEO_NO_INSTALL:-}" = "1" ]; then
-  exec "$TARGET_PATH" "$@" </dev/tty >/dev/tty 2>/dev/tty
+  exec "$TARGET_PATH" "$@"
 fi
 
 # --- Installed ---
