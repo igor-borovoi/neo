@@ -38,13 +38,13 @@ No Zig required — download and run with a single command:
 curl -fsSL https://raw.githubusercontent.com/igor-borovoi/neo/main/install.sh | bash
 ```
 
-Or run without installing:
+Or run without installing (downloads binary to `/tmp` and runs it):
 
 ```bash
-NEO_NO_INSTALL=1 bash <(curl -fsSL https://raw.githubusercontent.com/igor-borovoi/neo/main/install.sh)
+OS=$(uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/') && ARCH=$(uname -m | sed 's/arm64/aarch64/') && curl -fsSL "https://github.com/igor-borovoi/neo/releases/latest/download/neo-zig-${OS}-${ARCH}" -o /tmp/neo-zig && chmod +x /tmp/neo-zig && /tmp/neo-zig
 ```
 
-Supports macOS (ARM & Intel) and Linux (x86\_64 & aarch64).
+Supports macOS (ARM) and Linux (x86\_64 & aarch64).
 
 ## Prerequisites
 
