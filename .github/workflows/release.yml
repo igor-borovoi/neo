@@ -19,8 +19,9 @@ jobs:
             target-name: linux-aarch64
           - os: macos-latest
             target-name: macos-aarch64
-          - os: macos-13
+          - os: macos-latest
             target-name: macos-x86_64
+            zig-target: x86_64-macos
 
     runs-on: ${{ matrix.os }}
     name: Build ${{ matrix.target-name }}
@@ -28,7 +29,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Zig
+      - name: Install Zig (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ZIG_VERSION=0.14.0
+          ARCH=$(uname -m)
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz" \
+            | tar -xJ
+          sudo mv "zig-linux-${ARCH}-${ZIG_VERSION}" /usr/local/zig
+          echo "/usr/local/zig" >> "$GITHUB_PATH"
+
+      - name: Install Zig (macOS)
+        if: runner.os == 'macOS'
         uses: mlugg/setup-zig@v1
         with:
           version: '0.14.0'
@@ -38,7 +50,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libncursesw5-dev
 
       - name: Build
-        run: zig build -Doptimize=ReleaseFast
+        run: |
+          if [ -n "${{ matrix.zig-target }}" ]; then
+            zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.zig-target }}
+          else
+            zig build -Doptimize=ReleaseFast
+          fi
 
       - name: Stage binary
         run: |

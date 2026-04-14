@@ -1,5 +1,5 @@
 .{
-    .name = .@"neo-zig",
+    .name = .neo_zig,
     .version = "0.7.0",
     .minimum_zig_version = "0.14.0",
     .paths = .{
