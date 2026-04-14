@@ -19,9 +19,8 @@ jobs:
             target-name: linux-aarch64
           - os: macos-latest
             target-name: macos-aarch64
-          - os: macos-latest
+          - os: macos-12
             target-name: macos-x86_64
-            zig-target: x86_64-macos
 
     runs-on: ${{ matrix.os }}
     name: Build ${{ matrix.target-name }}
@@ -50,12 +49,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libncursesw5-dev
 
       - name: Build
-        run: |
-          if [ -n "${{ matrix.zig-target }}" ]; then
-            zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.zig-target }}
-          else
-            zig build -Doptimize=ReleaseFast
-          fi
+        run: zig build -Doptimize=ReleaseFast
 
       - name: Stage binary
         run: |
