@@ -18,7 +18,7 @@
   - Cyrillic (Russian)
   - Greek
   - Hebrew
-  - Arabic
+  - Arabic *(flows left-to-right instead of top-to-bottom)*
   - Devanagari (Hindi)
   - Braille
   - Runic
@@ -139,6 +139,8 @@ The binary will be at `./zig-out/bin/neo-zig`.
 - `q` or `ESC` - Quit
 - `p` - Pause/Resume
 - `Space` - Reset
+- `↑` / `↓` - Increase/decrease speed
+- `←` / `→` - Cycle through charsets
 
 ### All Options
 
@@ -155,6 +157,25 @@ The binary will be at `./zig-out/bin/neo-zig`.
     --seed=NUM         Set random seed for reproducible runs
     --no-glitch        Disable glitch animation
     --droplets=NUM     Set max droplets per column (default: 3)
+```
+
+## Shell Completions
+
+Tab completion is available for bash, zsh, and fish.
+
+**bash** — add to `~/.bashrc`:
+```bash
+source /path/to/neo-zig/completions/neo-zig.bash
+```
+
+**zsh** — copy to a directory on your `$fpath`:
+```bash
+cp completions/neo-zig.zsh /usr/local/share/zsh/site-functions/_neo-zig
+```
+
+**fish** — copy to completions directory:
+```bash
+cp completions/neo-zig.fish ~/.config/fish/completions/
 ```
 
 ## Screenshots
