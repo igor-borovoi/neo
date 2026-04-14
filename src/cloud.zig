@@ -23,6 +23,7 @@ pub const Cloud = struct {
     droplet_density: f32 = 1.0,
     droplets_per_sec: f32 = 5.0,
     col_stat: std.ArrayList(types.ColumnStatus),
+    row_stat: std.ArrayList(types.ColumnStatus),
     current_attr: ?types.CharAttr = null,
 
     chars_per_sec: f32 = 4.0, // Slower speed for classic Matrix effect
@@ -71,21 +72,22 @@ pub const Cloud = struct {
     const Droplet = struct {
         p_cloud: ?*Cloud = null,
         is_alive: bool = false,
+        // When horizontal=false: bound_col is the fixed x column, head_pos moves downward (rows).
+        // When horizontal=true:  bound_col is the fixed y row,    head_pos moves rightward (cols).
+        horizontal: bool = false,
         bound_col: u16 = 0xFFFF,
         char_pool_idx: u16 = 0xFFFF,
         length: u16 = 0xFFFF,
         chars_per_sec: f32 = 0.0,
         last_time: std.time.Instant = undefined,
-        // Virtual position (can be negative = above screen, or > lines = below screen)
-        // This is the "infinite canvas" model - screen is just a window into it
         head_pos: f32 = 0.0,
-        // Track what we've drawn for efficient updates
         last_drawn_head: i32 = -1000,
         last_drawn_tail: i32 = -1000,
 
         pub fn reset(self: *Droplet) void {
             self.p_cloud = null;
             self.is_alive = false;
+            self.horizontal = false;
             self.bound_col = 0xFFFF;
             self.char_pool_idx = 0xFFFF;
             self.length = 0xFFFF;
@@ -110,19 +112,25 @@ pub const Cloud = struct {
             const elapsed_ns = cur_time.since(self.last_time);
             const elapsed_sec = @as(f32, @floatFromInt(elapsed_ns)) / 1.0e9;
 
-            // Advance head position continuously
             self.head_pos += self.chars_per_sec * elapsed_sec;
 
-            // Allow other droplets to spawn once our tail clears the top quarter
             const tail_pos = self.getTailPos();
-            const thresh = @as(f32, @floatFromInt(cloud.lines)) / 4.0;
-            if (tail_pos > thresh) {
-                cloud.setColumnSpawn(self.bound_col, true);
-            }
 
-            // Kill droplet when tail exits bottom of screen
-            if (tail_pos >= @as(f32, @floatFromInt(cloud.lines))) {
-                self.is_alive = false;
+            if (self.horizontal) {
+                // Kill when tail exits the right edge
+                if (tail_pos >= @as(f32, @floatFromInt(cloud.cols))) {
+                    self.is_alive = false;
+                }
+            } else {
+                // Allow other droplets to spawn once our tail clears the top quarter
+                const thresh = @as(f32, @floatFromInt(cloud.lines)) / 4.0;
+                if (tail_pos > thresh) {
+                    cloud.setColumnSpawn(self.bound_col, true);
+                }
+                // Kill when tail exits the bottom
+                if (tail_pos >= @as(f32, @floatFromInt(cloud.lines))) {
+                    self.is_alive = false;
+                }
             }
 
             self.last_time = cur_time;
@@ -134,66 +142,63 @@ pub const Cloud = struct {
 
             const head_int = @as(i32, @intFromFloat(@floor(self.head_pos)));
             const tail_int = @as(i32, @intFromFloat(@floor(self.getTailPos())));
-            const lines_i32 = @as(i32, cloud.lines);
+            // For vertical droplets the axis limit is lines; for horizontal it is cols.
+            const axis_limit_i32: i32 = if (self.horizontal) @as(i32, cloud.cols) else @as(i32, cloud.lines);
 
-            // Clear characters that the tail has passed (erase old trail).
-            // Characters are drawn from tail_int+1 to head_int, so the first
-            // drawn line is last_drawn_tail+1. Erase up to tail_int+1 (inclusive).
-            if (self.last_drawn_tail + 1 >= 0 and self.last_drawn_tail < lines_i32) {
-                var erase_line = self.last_drawn_tail + 1;
-                const erase_end = @min(tail_int + 1, lines_i32);
-                while (erase_line < erase_end) : (erase_line += 1) {
-                    if (erase_line >= 0) {
-                        // Reset attributes before erasing
+            // Erase the positions the tail has passed since the last frame.
+            if (self.last_drawn_tail + 1 >= 0 and self.last_drawn_tail < axis_limit_i32) {
+                var erase_pos = self.last_drawn_tail + 1;
+                const erase_end = @min(tail_int + 1, axis_limit_i32);
+                while (erase_pos < erase_end) : (erase_pos += 1) {
+                    if (erase_pos >= 0) {
                         if (cloud.current_attr != null) {
                             _ = c.attr_set(0, 0, null);
                             cloud.current_attr = null;
                         }
-                        _ = c.mvaddch(@intCast(erase_line), @intCast(self.bound_col), ' ');
+                        if (self.horizontal) {
+                            _ = c.mvaddch(@intCast(self.bound_col), @intCast(erase_pos), ' ');
+                        } else {
+                            _ = c.mvaddch(@intCast(erase_pos), @intCast(self.bound_col), ' ');
+                        }
                     }
                 }
             }
 
-            // Calculate visible range (clipped to screen)
+            // Calculate visible range (clipped to screen).
             const visible_start = @max(tail_int + 1, 0);
-            const visible_end = @min(head_int, lines_i32 - 1);
+            const visible_end = @min(head_int, axis_limit_i32 - 1);
 
             if (visible_start > visible_end) {
-                // Nothing visible on screen
                 self.last_drawn_head = head_int;
                 self.last_drawn_tail = tail_int;
                 return;
             }
 
-            // Draw visible portion of the droplet
-            var line = visible_start;
-            while (line <= visible_end) : (line += 1) {
-                const line_u16 = @as(u16, @intCast(line));
-                const is_glitched = cloud.isGlitched(line_u16, self.bound_col);
-                const char_entry = cloud.getChar(line_u16, self.char_pool_idx);
+            var pos = visible_start;
+            while (pos <= visible_end) : (pos += 1) {
+                const pos_u16 = @as(u16, @intCast(pos));
+                // For glitch / char lookup keep the same coordinate convention as vertical.
+                const is_glitched = if (self.horizontal) false else cloud.isGlitched(pos_u16, self.bound_col);
+                const char_entry = cloud.getChar(pos_u16, self.char_pool_idx);
 
-                // Determine character location type
                 var cl = types.CharLoc.MIDDLE;
-                if (line == tail_int + 1) {
+                if (pos == tail_int + 1) {
                     cl = types.CharLoc.TAIL;
-                } else if (line == head_int) {
+                } else if (pos == head_int) {
                     cl = types.CharLoc.HEAD;
                 }
 
-                // Optimization: skip unchanged middle chars unless forced
                 if (!draw_everything and !is_glitched and cl == types.CharLoc.MIDDLE and
-                    line < self.last_drawn_head and line > self.last_drawn_tail and
+                    pos < self.last_drawn_head and pos > self.last_drawn_tail and
                     cloud.shading_mode != .DISTANCE_FROM_HEAD)
                 {
                     continue;
                 }
 
-                // Get attributes based on position in droplet
                 var attr = types.CharAttr{ .color_pair = 0, .is_bold = false };
-                const dist_from_head = @as(u16, @intCast(head_int - line));
-                cloud.getAttr(line_u16, self.bound_col, char_entry.codepoint, cl, &attr, dist_from_head, self.length);
+                const dist_from_head = @as(u16, @intCast(head_int - pos));
+                cloud.getAttr(pos_u16, self.bound_col, char_entry.codepoint, cl, &attr, dist_from_head, self.length);
 
-                // Only update attributes if they changed (attribute batching)
                 const needs_attr_change = if (cloud.current_attr) |ca|
                     ca.color_pair != attr.color_pair or ca.is_bold != attr.is_bold
                 else
@@ -210,8 +215,11 @@ pub const Cloud = struct {
                     cloud.current_attr = attr;
                 }
 
-                // Use pre-encoded UTF-8 bytes
-                _ = c.mvaddstr(@intCast(line), @intCast(self.bound_col), &char_entry.utf8);
+                if (self.horizontal) {
+                    _ = c.mvaddstr(@intCast(self.bound_col), @intCast(pos), &char_entry.utf8);
+                } else {
+                    _ = c.mvaddstr(@intCast(pos), @intCast(self.bound_col), &char_entry.utf8);
+                }
             }
 
             self.last_drawn_head = head_int;
@@ -231,6 +239,7 @@ pub const Cloud = struct {
         self.glitch_map = std.ArrayList(bool).initCapacity(allocator, 0) catch @panic("OOM");
         self.color_pair_map = std.ArrayList(c_int).initCapacity(allocator, 0) catch @panic("OOM");
         self.col_stat = std.ArrayList(types.ColumnStatus).initCapacity(allocator, 0) catch @panic("OOM");
+        self.row_stat = std.ArrayList(types.ColumnStatus).initCapacity(allocator, 0) catch @panic("OOM");
         self.message = std.ArrayList(types.MsgChr).initCapacity(allocator, 0) catch @panic("OOM");
         self.usr_colors = std.ArrayList(types.ColorContent).initCapacity(allocator, 0) catch @panic("OOM");
         self.current_attr = null;
@@ -286,6 +295,7 @@ pub const Cloud = struct {
         self.glitch_map.deinit(self.allocator);
         self.color_pair_map.deinit(self.allocator);
         self.col_stat.deinit(self.allocator);
+        self.row_stat.deinit(self.allocator);
         self.message.deinit(self.allocator);
         self.usr_colors.deinit(self.allocator);
     }
@@ -329,9 +339,14 @@ pub const Cloud = struct {
             droplet.draw(cur_time, self.force_draw_everything);
 
             if (!droplet.is_alive) {
-                // Droplet died, allow spawning in this column
-                self.col_stat.items[droplet.bound_col].num_droplets -= 1;
-                self.col_stat.items[droplet.bound_col].can_spawn = true;
+                // Droplet died — release the slot in whichever axis it occupied
+                if (droplet.horizontal) {
+                    self.row_stat.items[droplet.bound_col].num_droplets -= 1;
+                    self.row_stat.items[droplet.bound_col].can_spawn = true;
+                } else {
+                    self.col_stat.items[droplet.bound_col].num_droplets -= 1;
+                    self.col_stat.items[droplet.bound_col].can_spawn = true;
+                }
 
                 // Remove from active list using swap-with-last
                 self.active_droplets.items[i] = self.active_droplets.items[self.active_droplets.items.len - 1];
@@ -429,6 +444,7 @@ pub const Cloud = struct {
         try self.glitch_map.resize(self.allocator, screen_size);
         try self.color_pair_map.resize(self.allocator, screen_size);
         try self.col_stat.resize(self.allocator, self.cols);
+        try self.row_stat.resize(self.allocator, self.lines);
 
         for (0..screen_size) |i| {
             self.glitch_map.items[i] = false; // Not used anymore, time-based glitch instead
@@ -439,9 +455,16 @@ pub const Cloud = struct {
         self.active_glitch_line = 0xFFFF;
         self.active_glitch_col = 0xFFFF;
 
-        // Initialize column status
+        // Initialize column and row status
         for (0..self.cols) |i| {
             self.col_stat.items[i] = types.ColumnStatus{
+                .max_speed_pct = 1.0,
+                .num_droplets = 0,
+                .can_spawn = true,
+            };
+        }
+        for (0..self.lines) |i| {
+            self.row_stat.items[i] = types.ColumnStatus{
                 .max_speed_pct = 1.0,
                 .num_droplets = 0,
                 .can_spawn = true,
@@ -828,46 +851,52 @@ pub const Cloud = struct {
 
         if (droplets_to_spawn == 0) return;
 
+        const horizontal = (self.charset == .ARABIC);
+
         var spawned: usize = 0;
         for (0..droplets_to_spawn) |_| {
-            const col = @as(u16, @intCast(self.randomInt(@as(u32, self.cols))));
-            const col_status = &self.col_stat.items[col];
+            // For Arabic, droplets travel left→right along a fixed row.
+            // For all other charsets, droplets travel top→bottom along a fixed column.
+            const axis_bound: u16 = if (horizontal)
+                @as(u16, @intCast(self.randomInt(@as(u32, self.lines))))
+            else
+                @as(u16, @intCast(self.randomInt(@as(u32, self.cols))));
 
-            if (!col_status.can_spawn or col_status.num_droplets >= self.max_droplets_per_column) {
+            const stat = if (horizontal)
+                &self.row_stat.items[axis_bound]
+            else
+                &self.col_stat.items[axis_bound];
+
+            if (!stat.can_spawn or stat.num_droplets >= self.max_droplets_per_column) {
                 continue;
             }
 
             // Find inactive droplet
             for (self.droplets.items, 0..) |*droplet, idx| {
                 if (!droplet.is_alive) {
-                    // Fill droplet with proper parameters
                     droplet.reset();
                     droplet.p_cloud = self;
-                    droplet.bound_col = col;
-
-                    // Random character pool index
+                    droplet.horizontal = horizontal;
+                    droplet.bound_col = axis_bound;
                     droplet.char_pool_idx = @as(u16, @intCast(self.randomInt(types.CHAR_POOL_SIZE)));
 
-                    // Random length with minimum of 5 for visible trail
+                    // Length relative to the axis being traveled
+                    const axis_size: u32 = if (horizontal) @as(u32, self.cols) else @as(u32, self.lines);
                     const min_length: u32 = 5;
-                    const max_length: u32 = @max(@as(u32, self.lines) - 1, min_length);
+                    const max_length: u32 = @max(axis_size - 1, min_length);
                     const length_range = max_length - min_length + 1;
                     droplet.length = @as(u16, @intCast(self.randomInt(length_range) + min_length));
 
-                    // Random speed
                     droplet.chars_per_sec = self.chars_per_sec * (0.3333333 + self.randomFloat() * 0.6666667);
 
-                    // Start head position above screen so droplet enters with trail already formed
-                    // Random start: from just above screen (0) to fully above (-length)
-                    // This creates the illusion of an infinite stream we're viewing through a window
+                    // Start off-screen so the droplet enters with its trail already forming
                     const start_offset = self.randomFloat() * @as(f32, @floatFromInt(droplet.length));
                     droplet.head_pos = -start_offset;
 
                     droplet.activate(cur_time);
-                    col_status.can_spawn = false;
-                    col_status.num_droplets += 1;
+                    stat.can_spawn = false;
+                    stat.num_droplets += 1;
 
-                    // Add to active droplets list
                     self.active_droplets.appendAssumeCapacity(idx);
 
                     spawned += 1;
