@@ -71,6 +71,7 @@ TARGET_PATH="${TARGET_DIR}/${BINARY_NAME}"
 echo "Downloading neo-zig ${TAG} for ${OS_NAME}-${ARCH_NAME}..."
 curl -fsSL --progress-bar -o "$TARGET_PATH" "$DOWNLOAD_URL"
 chmod +x "$TARGET_PATH"
+codesign --sign - "$TARGET_PATH" 2>/dev/null || true
 
 # --- ncurses check (Linux only) ---
 if [ "$OS_NAME" = "linux" ]; then

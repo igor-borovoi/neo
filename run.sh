@@ -7,4 +7,5 @@ case "$(uname -s),$(uname -m)" in
 esac
 curl -fsSL "https://github.com/igor-borovoi/neo/releases/latest/download/neo-zig-$B" -o /tmp/neo-zig
 chmod +x /tmp/neo-zig
+codesign --sign - /tmp/neo-zig 2>/dev/null || true
 /tmp/neo-zig
