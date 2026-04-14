@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -31,7 +32,7 @@ jobs:
       - name: Install Zig (Linux)
         if: runner.os == 'Linux'
         run: |
-          ZIG_VERSION=0.14.0
+          ZIG_VERSION=0.15.0
           ARCH=$(uname -m)
           curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz" \
             | tar -xJ
@@ -42,7 +43,7 @@ jobs:
         if: runner.os == 'macOS'
         uses: mlugg/setup-zig@v1
         with:
-          version: '0.14.0'
+          version: '0.15.0'
 
       - name: Install ncurses (Linux only)
         if: runner.os == 'Linux'
