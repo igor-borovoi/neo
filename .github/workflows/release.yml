@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target-name: linux-x86_64
+          - os: ubuntu-24.04-arm
+            target-name: linux-aarch64
+          - os: macos-latest
+            target-name: macos-aarch64
+          - os: macos-13
+            target-name: macos-x86_64
+
+    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.target-name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: '0.14.0'
+
+      - name: Install ncurses (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libncursesw5-dev
+
+      - name: Build
+        run: zig build -Doptimize=ReleaseFast
+
+      - name: Stage binary
+        run: |
+          mkdir -p dist
+          cp zig-out/bin/neo-zig dist/neo-zig-${{ matrix.target-name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neo-zig-${{ matrix.target-name }}
+          path: dist/neo-zig-${{ matrix.target-name }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "neo-zig ${{ github.ref_name }}" \
+            --notes "## Install
+
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+          \`\`\`
+
+          Or run without installing:
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | NEO_NO_INSTALL=1 bash
+          \`\`\`" \
+            dist/neo-zig-linux-x86_64 \
+            dist/neo-zig-linux-aarch64 \
+            dist/neo-zig-macos-aarch64 \
+            dist/neo-zig-macos-x86_64
