@@ -23,6 +23,7 @@ const CHARSET_CYCLE = [_]types.Charset{
     .HEBREW,
     .DEVANAGARI,
     .BRAILLE,
+    .RUNIC,
     .BINARY,
     .HEX,
 };
