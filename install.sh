@@ -102,7 +102,9 @@ fi
 
 # --- Run in-place (no install) ---
 if [ "${NEO_NO_INSTALL:-}" = "1" ]; then
-  exec "$TARGET_PATH" "$@"
+  "$TARGET_PATH" "$@"
+  rm -rf "$TARGET_DIR"
+  exit 0
 fi
 
 # --- Installed ---
