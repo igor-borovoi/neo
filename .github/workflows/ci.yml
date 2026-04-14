@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux x86_64
+          - os: macos-latest
+            name: macOS aarch64
+
+    runs-on: ${{ matrix.os }}
+    name: Test (${{ matrix.name }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig
+        run: |
+          ZIG_VERSION=0.14.0
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
+          ARCH=$(uname -m | sed 's/arm64/aarch64/')
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${OS}-${ARCH}-${ZIG_VERSION}.tar.xz" \
+            | tar -xJ
+          sudo mv "zig-${OS}-${ARCH}-${ZIG_VERSION}" /usr/local/zig
+          echo "/usr/local/zig" >> "$GITHUB_PATH"
+
+      - name: Install ncurses (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libncursesw5-dev
+
+      - name: Build
+        run: zig build
+
+      - name: Test
+        run: zig build test
