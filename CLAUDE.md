@@ -16,7 +16,11 @@ zig build test         # Run the test suite
 zig build bench        # Run performance benchmark
 ```
 
-**Dependencies**: Zig 0.14.0+, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch, built-in on macOS)
+**Dependencies**: Zig 0.16.0, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch, built-in on macOS)
+
+On Linux, `build.zig` compiles to an object via Zig and links via the system `cc`. This sidesteps an incompatibility where Zig 0.16's bundled linkers (LLD and self-hosted) cannot relocate `.sframe` sections in GCC 16+ CRT files. macOS/other targets link normally via Zig.
+
+Time and I/O go through `std.Io` in Zig 0.16. `src/time.zig` is a thin compat shim wrapping `std.Io.Clock` with a `std.time.Instant`-shaped surface (`now(io)`, `since()`, `order()`, plus `sleep(io, ns)` and `nanoTimestamp(io)` helpers). `Cloud` carries an `io` field; `main`/`benchmark`/`test` receive `std.process.Init` and pass `init.io` down.
 
 ## Architecture
 

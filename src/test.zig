@@ -2,16 +2,15 @@ const std = @import("std");
 const types = @import("types.zig");
 const cloud_mod = @import("cloud.zig");
 const Cloud = cloud_mod.Cloud;
+const time = @import("time.zig");
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     std.debug.print("Testing Zig neo without ncurses...\n", .{});
 
-    // Test Cloud initialization
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    const allocator = init.gpa;
+    const io = init.io;
 
-    var cloud = Cloud.init(allocator, .COLOR256, true);
+    var cloud = Cloud.init(allocator, io, .COLOR256, true);
     defer cloud.deinit();
 
     std.debug.print("Cloud initialized successfully!\n", .{});
@@ -33,15 +32,15 @@ pub fn main() !void {
     std.debug.print("col_stat initialized with {} columns\n", .{cloud.col_stat.items.len});
 
     // Initialize timestamps for spawnDroplets test
-    const now = std.time.Instant.now() catch unreachable;
+    const now = time.Instant.now(io);
     cloud.last_spawn_time = now;
 
     // Temporarily modify droplets_per_sec to force spawning for testing
     cloud.droplets_per_sec = 100.0; // High rate for testing
 
     // Create artificial time difference by sleeping
-    std.Thread.sleep(10 * std.time.ns_per_ms); // Sleep 10ms
-    const future_time = std.time.Instant.now() catch unreachable;
+    time.sleep(io, 10 * std.time.ns_per_ms); // Sleep 10ms
+    const future_time = time.Instant.now(io);
 
     cloud.spawnDroplets(future_time);
 

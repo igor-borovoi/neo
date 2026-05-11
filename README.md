@@ -51,7 +51,7 @@ Supports macOS (ARM) and Linux (x86\_64 & aarch64).
 **neo-zig** works on Linux and other UNIX-like operating systems (macOS, FreeBSD). Windows is not supported natively but may work via WSL.
 
 Required (only if building from source):
-- [Zig](https://ziglang.org/download/) (0.15.2 or later)
+- [Zig](https://ziglang.org/download/) 0.16.0
 - ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch)
 
 For Unicode characters, use a font that supports the character set you want to display and ensure your locale is set to UTF-8.

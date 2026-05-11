@@ -8,6 +8,7 @@ const c = @cImport({
 const types = @import("types.zig");
 const cloud_mod = @import("cloud.zig");
 const Cloud = cloud_mod.Cloud;
+const time = @import("time.zig");
 
 const CHARSET_CYCLE = [_]types.Charset{
     .MIX,
@@ -74,20 +75,19 @@ fn cycleCharsetBackward(charset: types.Charset) types.Charset {
 const NotificationState = struct {
     message: [64]u8 = undefined,
     message_len: usize = 0,
-    end_time_ns: u64 = 0,
+    deadline: time.Instant = .{},
 
-    fn setMessage(self: *NotificationState, msg: []const u8, duration_sec: u64) void {
+    fn setMessage(self: *NotificationState, msg: []const u8, duration_sec: u64, now: time.Instant) void {
         const copy_len = @min(msg.len, self.message.len - 1);
         @memcpy(self.message[0..copy_len], msg[0..copy_len]);
         self.message[copy_len] = 0;
         self.message_len = copy_len;
-        self.end_time_ns = @as(u64, @intCast(std.time.nanoTimestamp())) + duration_sec * 1_000_000_000;
+        self.deadline = .{ .nanoseconds = now.nanoseconds + @as(i96, @intCast(duration_sec)) * std.time.ns_per_s };
     }
 
-    fn isActive(self: *const NotificationState) bool {
-        if (self.end_time_ns == 0 or self.message_len == 0) return false;
-        const now_ns = @as(u64, @intCast(std.time.nanoTimestamp()));
-        return now_ns < self.end_time_ns;
+    fn isActive(self: *const NotificationState, now: time.Instant) bool {
+        if (self.message_len == 0) return false;
+        return now.order(self.deadline) == .lt;
     }
 
     fn getMessage(self: *const NotificationState) []const u8 {
@@ -175,7 +175,7 @@ fn getTerminalSize() struct { width: usize, height: usize } {
     return .{ .width = 120, .height = 30 };
 }
 
-fn simpleMatrixMode(target_fps: f32) !void {
+fn simpleMatrixMode(target_fps: f32, io: std.Io) !void {
     // Use dynamic terminal size detection
     const term_size = getTerminalSize();
     const num_cols = term_size.width;
@@ -201,10 +201,10 @@ fn simpleMatrixMode(target_fps: f32) !void {
 
     var frame_count: usize = 0;
     const target_period_ns = @as(u64, @intFromFloat(@round(1.0 / target_fps * 1.0e9)));
-    var prev_time = std.time.Instant.now() catch unreachable;
+    var prev_time = time.Instant.now(io);
 
     while (true) {
-        const now = std.time.Instant.now() catch unreachable;
+        const now = time.Instant.now(io);
 
         // TODO: Add resize checking back when basic functionality works
 
@@ -275,7 +275,7 @@ fn simpleMatrixMode(target_fps: f32) !void {
         if (elapsed < target_period_ns) {
             delay = target_period_ns - elapsed;
         }
-        std.Thread.sleep(delay);
+        time.sleep(io, delay);
         prev_time = now;
 
         frame_count += 1;
@@ -284,7 +284,7 @@ fn simpleMatrixMode(target_fps: f32) !void {
     }
 }
 
-fn handleInput(cloud: *Cloud, target_fps: *f32, notification: *NotificationState) bool {
+fn handleInput(cloud: *Cloud, target_fps: *f32, notification: *NotificationState, now: time.Instant) bool {
     const ch = c.getch();
     if (ch == -1) return false;
 
@@ -305,25 +305,25 @@ fn handleInput(cloud: *Cloud, target_fps: *f32, notification: *NotificationState
             target_fps.* = @min(target_fps.* + 1.0, 100.0);
             var buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&buf, " Speed: {d:.0} ", .{target_fps.*}) catch return true;
-            notification.setMessage(msg, 5);
+            notification.setMessage(msg, 5, now);
         },
         c.KEY_DOWN => {
             target_fps.* = @max(target_fps.* - 1.0, 1.0);
             var buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&buf, " Speed: {d:.0} ", .{target_fps.*}) catch return true;
-            notification.setMessage(msg, 5);
+            notification.setMessage(msg, 5, now);
         },
         c.KEY_RIGHT => {
             cloud.setCharset(cycleCharsetForward(cloud.charset));
             var buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&buf, " Charset: {s} ", .{charsetName(cloud.charset)}) catch return true;
-            notification.setMessage(msg, 5);
+            notification.setMessage(msg, 5, now);
         },
         c.KEY_LEFT => {
             cloud.setCharset(cycleCharsetBackward(cloud.charset));
             var buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&buf, " Charset: {s} ", .{charsetName(cloud.charset)}) catch return true;
-            notification.setMessage(msg, 5);
+            notification.setMessage(msg, 5, now);
         },
         else => {},
     }
@@ -380,9 +380,9 @@ fn printHelp(appName: []const u8) noreturn {
     std.process.exit(0);
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     // Simple argument parsing
-    var args_iter = try std.process.argsWithAllocator(std.heap.page_allocator);
+    var args_iter = try init.minimal.args.iterateAllocator(init.gpa);
     defer args_iter.deinit();
     const program_name = args_iter.next() orelse "neo-zig";
 
@@ -614,11 +614,9 @@ pub fn main() !void {
     const use_ascii = if (locale != null) std.mem.indexOf(u8, std.mem.span(locale), "UTF") == null else false;
 
     // Create cloud
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    const allocator = init.gpa;
 
-    var cloud = Cloud.init(allocator, color_mode, use_ascii);
+    var cloud = Cloud.init(allocator, init.io, color_mode, use_ascii);
     defer cloud.deinit();
 
     // Apply requested charset
@@ -649,7 +647,7 @@ pub fn main() !void {
     // Apply seed: use provided seed or generate random one
     const actual_seed: u64 = if (seed) |s| s else blk: {
         var buf: [8]u8 = undefined;
-        std.crypto.random.bytes(&buf);
+        init.io.random(&buf);
         break :blk @bitCast(buf);
     };
     cloud.setSeed(actual_seed);
@@ -663,7 +661,7 @@ pub fn main() !void {
 
     // Benchmark tracking
     const benchmark_mode = benchmark_seconds != null;
-    var bench_start_time: ?std.time.Instant = null;
+    var bench_start_time: ?time.Instant = null;
     var bench_frame_count: u64 = 0;
     var bench_frame_times: std.ArrayList(u64) = undefined;
     var bench_droplet_counts: std.ArrayList(u32) = undefined;
@@ -683,16 +681,16 @@ pub fn main() !void {
     // Main loop
     var notification = NotificationState{};
     var notification_was_active = false;
-    var prev_time = std.time.Instant.now() catch unreachable;
+    var prev_time = time.Instant.now(init.io);
     var prev_delay: u64 = 5;
 
     while (cloud.raining) {
-        _ = handleInput(&cloud, &target_fps, &notification);
+        const cur_time = time.Instant.now(init.io);
+
+        _ = handleInput(&cloud, &target_fps, &notification, cur_time);
 
         // Check for terminal resize every frame
         checkTerminalResize(&cloud);
-
-        const cur_time = std.time.Instant.now() catch unreachable;
 
         // Initialize benchmark start time on first frame
         if (benchmark_mode and bench_start_time == null) {
@@ -702,7 +700,7 @@ pub fn main() !void {
         cloud.rain();
 
         // Notification overlay (takes precedence over benchmark)
-        const notification_active = notification.isActive();
+        const notification_active = notification.isActive(cur_time);
         if (notification_active) {
             _ = c.move(0, 0);
             _ = c.clrtoeol();
@@ -716,7 +714,7 @@ pub fn main() !void {
             notification_was_active = false;
         } else if (benchmark_mode) {
             // Benchmark overlay
-            const frame_start = std.time.Instant.now() catch unreachable;
+            const frame_start = time.Instant.now(init.io);
 
             bench_frame_count += 1;
 
@@ -743,7 +741,7 @@ pub fn main() !void {
             _ = c.mvprintw(0, 5, " %5.0f/s D:%3d %.1f/%.0fs ", fps_c, droplets_c, elapsed_c, total_c);
 
             // Track frame time (excluding overlay drawing)
-            const frame_end = std.time.Instant.now() catch unreachable;
+            const frame_end = time.Instant.now(init.io);
             const actual_frame_ns = frame_end.since(frame_start);
             bench_frame_times.append(std.heap.page_allocator, actual_frame_ns) catch {};
             bench_droplet_counts.append(std.heap.page_allocator, active_droplets) catch {};
@@ -768,7 +766,7 @@ pub fn main() !void {
             }
 
             const cur_delay = (7 * prev_delay + calc_delay) / 8;
-            std.Thread.sleep(cur_delay);
+            time.sleep(init.io, cur_delay);
             prev_delay = cur_delay;
         }
 
@@ -801,7 +799,7 @@ pub fn main() !void {
         const avg_droplets = @as(f64, @floatFromInt(total_droplets)) / @as(f64, @floatFromInt(bench_frame_count));
 
         // Calculate actual duration from benchmark timing
-        const bench_end_time = std.time.Instant.now() catch unreachable;
+        const bench_end_time = time.Instant.now(init.io);
         const actual_duration_ns = bench_end_time.since(bench_start_time.?);
         const actual_duration = @as(f64, @floatFromInt(actual_duration_ns)) / 1.0e9;
         const throughput = @as(f64, @floatFromInt(bench_frame_count)) / actual_duration;

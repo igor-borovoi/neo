@@ -5,9 +5,11 @@ const c = @cImport({
 });
 
 const types = @import("types.zig");
+const time = @import("time.zig");
 
 pub const Cloud = struct {
     allocator: std.mem.Allocator,
+    io: std.Io,
     droplets: std.ArrayList(Droplet),
     active_droplets: std.ArrayList(usize),
     lines: u16 = 25,
@@ -48,10 +50,10 @@ pub const Cloud = struct {
     default_to_ascii: bool = false,
     message: std.ArrayList(types.MsgChr),
 
-    last_glitch_time: std.time.Instant = undefined,
-    next_glitch_time: std.time.Instant = undefined,
-    pause_time: std.time.Instant = undefined,
-    last_spawn_time: std.time.Instant = undefined,
+    last_glitch_time: time.Instant = undefined,
+    next_glitch_time: time.Instant = undefined,
+    pause_time: time.Instant = undefined,
+    last_spawn_time: time.Instant = undefined,
 
     // Time-based glitch system: one glitch per 30 seconds per ~20" diagonal display equivalent
     // Reference: 160x45 terminal ≈ 7200 cells ≈ 20" diagonal at typical font size
@@ -79,7 +81,7 @@ pub const Cloud = struct {
         char_pool_idx: u16 = 0xFFFF,
         length: u16 = 0xFFFF,
         chars_per_sec: f32 = 0.0,
-        last_time: std.time.Instant = undefined,
+        last_time: time.Instant = undefined,
         head_pos: f32 = 0.0,
         last_drawn_head: i32 = -1000,
         last_drawn_tail: i32 = -1000,
@@ -97,7 +99,7 @@ pub const Cloud = struct {
             self.last_drawn_tail = -1000;
         }
 
-        pub fn activate(self: *Droplet, cur_time: std.time.Instant) void {
+        pub fn activate(self: *Droplet, cur_time: time.Instant) void {
             self.is_alive = true;
             self.last_time = cur_time;
         }
@@ -107,7 +109,7 @@ pub const Cloud = struct {
             return self.head_pos - @as(f32, @floatFromInt(self.length));
         }
 
-        pub fn advance(self: *Droplet, cur_time: std.time.Instant) void {
+        pub fn advance(self: *Droplet, cur_time: time.Instant) void {
             const cloud = self.p_cloud orelse return;
             const elapsed_ns = cur_time.since(self.last_time);
             const elapsed_sec = @as(f32, @floatFromInt(elapsed_ns)) / 1.0e9;
@@ -136,7 +138,7 @@ pub const Cloud = struct {
             self.last_time = cur_time;
         }
 
-        pub fn draw(self: *Droplet, cur_time: std.time.Instant, draw_everything: bool) void {
+        pub fn draw(self: *Droplet, cur_time: time.Instant, draw_everything: bool) void {
             _ = cur_time;
             const cloud = self.p_cloud orelse return;
 
@@ -227,9 +229,10 @@ pub const Cloud = struct {
         }
     };
 
-    pub fn init(allocator: std.mem.Allocator, cm: types.ColorMode, def2ascii: bool) Cloud {
+    pub fn init(allocator: std.mem.Allocator, io: std.Io, cm: types.ColorMode, def2ascii: bool) Cloud {
         var self: Cloud = undefined;
         self.allocator = allocator;
+        self.io = io;
         self.droplets = std.ArrayList(Droplet).initCapacity(allocator, 0) catch @panic("OOM");
         self.active_droplets = std.ArrayList(usize).initCapacity(allocator, 0) catch @panic("OOM");
         self.chars = std.ArrayList(u21).initCapacity(allocator, 0) catch @panic("OOM");
@@ -313,7 +316,7 @@ pub const Cloud = struct {
     pub fn rain(self: *Cloud) void {
         if (self.pause) return;
 
-        const cur_time = std.time.Instant.now() catch unreachable;
+        const cur_time = time.Instant.now(self.io);
 
         // Handle time-based glitch system
         if (self.glitchy) {
@@ -367,7 +370,7 @@ pub const Cloud = struct {
     }
 
     /// Update time-based glitch: trigger new glitch or expire current one
-    fn updateGlitch(self: *Cloud, cur_time: std.time.Instant) void {
+    fn updateGlitch(self: *Cloud, cur_time: time.Instant) void {
         // Check if current glitch has expired (after glitch_duration_ms)
         if (self.active_glitch_line != 0xFFFF) {
             const elapsed_since_glitch = cur_time.since(self.last_glitch_time);
@@ -482,7 +485,7 @@ pub const Cloud = struct {
         self.resetMessage();
 
         // Initialize timestamps
-        const now = std.time.Instant.now() catch unreachable;
+        const now = time.Instant.now(self.io);
         self.last_glitch_time = now;
         self.next_glitch_time = now;
         self.pause_time = now;
@@ -844,7 +847,7 @@ pub const Cloud = struct {
         }
     }
 
-    pub fn spawnDroplets(self: *Cloud, cur_time: std.time.Instant) void {
+    pub fn spawnDroplets(self: *Cloud, cur_time: time.Instant) void {
         const elapsed_ns = cur_time.since(self.last_spawn_time);
         const elapsed_sec = @as(f32, @floatFromInt(elapsed_ns)) / 1.0e9;
         const droplets_to_spawn = @min(@as(usize, @intFromFloat(@round(elapsed_sec * self.droplets_per_sec))), self.droplets.items.len);
@@ -1561,9 +1564,9 @@ pub const Cloud = struct {
     pub fn togglePause(self: *Cloud) void {
         self.pause = !self.pause;
         if (self.pause) {
-            self.pause_time = std.time.Instant.now() catch unreachable;
+            self.pause_time = time.Instant.now(self.io);
         } else {
-            const now = std.time.Instant.now() catch unreachable;
+            const now = time.Instant.now(self.io);
             const elapsed = now.since(self.pause_time);
             _ = elapsed; // For now, just reset spawn time
             self.last_spawn_time = now;

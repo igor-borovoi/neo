@@ -7,14 +7,11 @@ const c = @cImport({
 
 const types = @import("types.zig");
 const Cloud = @import("cloud.zig").Cloud;
+const time = @import("time.zig");
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
 
     var num_frames: usize = 100;
     var warmup_frames: usize = 10;
@@ -38,18 +35,18 @@ pub fn main() !void {
     }
 
     if (use_ncurses) {
-        try runNcursesBenchmark(allocator, num_frames, warmup_frames);
+        try runNcursesBenchmark(allocator, init.io, num_frames, warmup_frames);
     } else {
-        try runHeadlessBenchmark(allocator, num_frames, warmup_frames);
+        try runHeadlessBenchmark(allocator, init.io, num_frames, warmup_frames);
     }
 }
 
-fn runHeadlessBenchmark(allocator: std.mem.Allocator, num_frames: usize, warmup_frames: usize) !void {
+fn runHeadlessBenchmark(allocator: std.mem.Allocator, io: std.Io, num_frames: usize, warmup_frames: usize) !void {
     std.debug.print("=== Headless Benchmark (no ncurses rendering) ===\n", .{});
     std.debug.print("Frames: {} (warmup: {})\n", .{ num_frames, warmup_frames });
     std.debug.print("Simulated terminal: 160x45\n\n", .{});
 
-    var cloud = Cloud.init(allocator, .COLOR256, false);
+    var cloud = Cloud.init(allocator, io, .COLOR256, false);
     defer cloud.deinit();
 
     // First reset (will use default 24x80 since ncurses isn't initialized)
@@ -82,29 +79,29 @@ fn runHeadlessBenchmark(allocator: std.mem.Allocator, num_frames: usize, warmup_
 
     // Simulate 50ms per frame (20 FPS)
     const frame_time_ns: u64 = 50_000_000;
-    var cur_time = std.time.Instant.now() catch unreachable;
+    var cur_time = time.Instant.now(io);
     cloud.last_spawn_time = cur_time;
 
     std.debug.print("Running warmup... ", .{});
     for (0..warmup_frames) |_| {
         cloud.rain();
-        std.Thread.sleep(frame_time_ns);
-        cur_time = std.time.Instant.now() catch unreachable;
+        time.sleep(io, frame_time_ns);
+        cur_time = time.Instant.now(io);
         cloud.last_spawn_time = cur_time;
     }
     std.debug.print("done\n", .{});
 
     std.debug.print("Running benchmark... ", .{});
-    const start_time = std.time.Instant.now() catch unreachable;
+    const start_time = time.Instant.now(io);
 
     for (0..num_frames) |_| {
         cloud.rain();
-        std.Thread.sleep(frame_time_ns);
-        cur_time = std.time.Instant.now() catch unreachable;
+        time.sleep(io, frame_time_ns);
+        cur_time = time.Instant.now(io);
         cloud.last_spawn_time = cur_time;
     }
 
-    const end_time = std.time.Instant.now() catch unreachable;
+    const end_time = time.Instant.now(io);
     std.debug.print("done\n\n", .{});
 
     const total_ns = end_time.since(start_time);
@@ -124,7 +121,7 @@ fn runHeadlessBenchmark(allocator: std.mem.Allocator, num_frames: usize, warmup_
     std.debug.print("Active droplets: {}\n", .{cloud.active_droplets.items.len});
 }
 
-fn runNcursesBenchmark(allocator: std.mem.Allocator, num_frames: usize, warmup_frames: usize) !void {
+fn runNcursesBenchmark(allocator: std.mem.Allocator, io: std.Io, num_frames: usize, warmup_frames: usize) !void {
     _ = c.setlocale(c.LC_ALL, "");
     _ = c.initscr();
     _ = c.cbreak();
@@ -139,21 +136,21 @@ fn runNcursesBenchmark(allocator: std.mem.Allocator, num_frames: usize, warmup_f
     std.debug.print("Frames: {} (warmup: {})\n", .{ num_frames, warmup_frames });
     std.debug.print("Terminal: {}x{}\n\n", .{ c.COLS, c.LINES });
 
-    var cloud = Cloud.init(allocator, .COLOR256, false);
+    var cloud = Cloud.init(allocator, io, .COLOR256, false);
     defer cloud.deinit();
     try cloud.reset();
     try cloud.setColor(.GREEN);
     cloud.raining = true;
 
-    var cur_time = std.time.Instant.now() catch unreachable;
+    var cur_time = time.Instant.now(io);
 
     std.debug.print("Running warmup... ", .{});
     for (0..warmup_frames) |_| {
         cloud.rain();
         _ = c.refresh();
-        cur_time = std.time.Instant.now() catch unreachable;
+        cur_time = time.Instant.now(io);
         cloud.last_spawn_time = cur_time;
-        std.Thread.sleep(16_000_000);
+        time.sleep(io, 16_000_000);
     }
     std.debug.print("done\n", .{});
 
@@ -161,17 +158,17 @@ fn runNcursesBenchmark(allocator: std.mem.Allocator, num_frames: usize, warmup_f
     _ = c.refresh();
 
     std.debug.print("Running benchmark... ", .{});
-    const start_time = std.time.Instant.now() catch unreachable;
+    const start_time = time.Instant.now(io);
 
     for (0..num_frames) |_| {
         cloud.rain();
         _ = c.refresh();
-        cur_time = std.time.Instant.now() catch unreachable;
+        cur_time = time.Instant.now(io);
         cloud.last_spawn_time = cur_time;
-        std.Thread.sleep(16_000_000);
+        time.sleep(io, 16_000_000);
     }
 
-    const end_time = std.time.Instant.now() catch unreachable;
+    const end_time = time.Instant.now(io);
     std.debug.print("done\n\n", .{});
 
     _ = c.endwin();
