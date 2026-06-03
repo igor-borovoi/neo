@@ -3,6 +3,10 @@ zig-out/
 zig-cache/
 .zig-cache/
 
+# Task runner state
+.task/
+.dev-server.pid
+
 # Editor files
 *.swp
 *~

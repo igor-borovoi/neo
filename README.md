@@ -66,6 +66,60 @@ zig build
 
 The binary will be at `./zig-out/bin/neo-zig`.
 
+### Task Runner
+
+If you have [Task](https://taskfile.dev) installed, every build command has a shortcut:
+
+```bash
+task            # Build the wasm bundle and serve it in the browser
+task web        # Same as above
+task serve      # Serve an already-built wasm bundle (no rebuild)
+task wasm       # Build the WebAssembly bundle into zig-out/web
+task build      # Build the native executable
+task run        # Build and run; pass args after --, e.g. task run -- -c gold
+task test       # Run the test suite
+task bench      # Run the performance benchmark
+```
+
+For development there are two watch modes:
+
+```bash
+task dev        # Native: rebuilds and restarts the app when src/ changes
+task web:dev    # Browser: serves the wasm build, rebuilds on src/ or web/
+                # changes, and the open page reloads itself automatically
+```
+
+The web server port defaults to 8000; override with `task web:dev PORT=9000` (works for `web` and `serve` too).
+
+## Running in the Browser (WebAssembly)
+
+The same Zig simulation compiles to `wasm32-freestanding` and runs in any modern browser, rendered onto a canvas. One command builds and serves it:
+
+```bash
+task            # then open http://localhost:8000
+```
+
+Or without Task:
+
+```bash
+zig build wasm
+python3 -m http.server -d zig-out/web 8000
+# open http://localhost:8000
+```
+
+No ncurses needed for this target; a small JS host (`web/neo.js`) drives the frame loop, draws the cell updates emitted by the wasm module, and forwards keyboard input. All interactive controls work in the browser (pause, reset, speed, charset cycling).
+
+Options are passed via URL query parameters:
+
+```
+http://localhost:8000/?color=gold&charset=katakana&speed=30&seed=42
+```
+
+- `color` - green, green2, green3, gold, red, blue, cyan, yellow, orange, purple, pink, pink2, rainbow, vaporwave, gray
+- `charset` - mix, katakana, ascii, extended, english, digits, punc, cyrillic, greek, arabic, hebrew, devanagari, braille, runic, binary, hex
+- `speed` - target FPS (1-100)
+- `seed` - random seed for reproducible rain
+
 ## Running
 
 ```bash

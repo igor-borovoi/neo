@@ -82,9 +82,30 @@ fn addArtifactInstall(b: *std.Build, name: []const u8, src: std.Build.LazyPath) 
     return b.addInstallFileWithDir(src, .bin, name);
 }
 
+/// Browser build: wasm32-freestanding module plus the static host page,
+/// installed together under zig-out/web.
+fn addWasmStep(b: *std.Build) void {
+    const wasm_module = b.createModule(.{
+        .root_source_file = b.path("src/wasm_main.zig"),
+        .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding }),
+        .optimize = .ReleaseSmall,
+    });
+    const wasm_exe = b.addExecutable(.{ .name = "neo", .root_module = wasm_module });
+    wasm_exe.entry = .disabled;
+    wasm_exe.rdynamic = true;
+
+    const web_dir: std.Build.InstallDir = .{ .custom = "web" };
+    const wasm_step = b.step("wasm", "Build the WebAssembly bundle into zig-out/web");
+    wasm_step.dependOn(&b.addInstallFileWithDir(wasm_exe.getEmittedBin(), web_dir, "neo.wasm").step);
+    wasm_step.dependOn(&b.addInstallFileWithDir(b.path("web/index.html"), web_dir, "index.html").step);
+    wasm_step.dependOn(&b.addInstallFileWithDir(b.path("web/neo.js"), web_dir, "neo.js").step);
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    addWasmStep(b);
 
     const is_linux = target.result.os.tag == .linux;
 

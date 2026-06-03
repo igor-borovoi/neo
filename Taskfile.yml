@@ -1,0 +1,74 @@
+version: "3"
+
+interval: 500ms
+
+vars:
+  PORT: '{{.PORT | default "8000"}}'
+
+tasks:
+  default:
+    desc: Build the wasm bundle and serve it in the browser
+    deps: [web]
+
+  dev:
+    desc: Run the native app, rebuilding and restarting it on source changes
+    watch: true
+    sources:
+      - src/**/*.zig
+      - build.zig
+    cmds:
+      - zig build run -- {{.CLI_ARGS}}
+
+  web:dev:
+    desc: Serve the wasm version and rebuild on source changes (browser auto-reloads)
+    deps: [wasm]
+    cmds:
+      - python3 -m http.server -d zig-out/web {{.PORT}} >/dev/null 2>&1 & echo $! > .dev-server.pid
+      - defer: kill $(cat .dev-server.pid) 2>/dev/null; rm -f .dev-server.pid
+      - echo "Serving at http://localhost:{{.PORT}} - watching src/ and web/ for changes"
+      - task --watch web:dev:rebuild
+
+  web:dev:rebuild:
+    sources:
+      - src/**/*.zig
+      - build.zig
+      - web/**
+    cmds:
+      - zig build wasm
+
+  web:
+    desc: Build the wasm bundle and serve it at http://localhost:{{.PORT}}
+    deps: [wasm]
+    cmds:
+      - task: serve
+
+  serve:
+    desc: Serve an already-built wasm bundle at http://localhost:{{.PORT}}
+    cmds:
+      - echo "Serving at http://localhost:{{.PORT}} (Ctrl+C to stop)"
+      - python3 -m http.server -d zig-out/web {{.PORT}}
+
+  wasm:
+    desc: Build the WebAssembly bundle into zig-out/web
+    cmds:
+      - zig build wasm
+
+  build:
+    desc: Build the native executable
+    cmds:
+      - zig build
+
+  run:
+    desc: Build and run the native executable (extra args after --)
+    cmds:
+      - zig build run -- {{.CLI_ARGS}}
+
+  test:
+    desc: Run the test suite
+    cmds:
+      - zig build test
+
+  bench:
+    desc: Run the performance benchmark
+    cmds:
+      - zig build bench

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>neo</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    #screen {
+      display: block;
+    }
+    #notification {
+      position: fixed;
+      top: 0;
+      left: 0;
+      padding: 2px 8px;
+      font: bold 16px Menlo, Monaco, Consolas, monospace;
+      background: #d0d0d0;
+      color: #000;
+      display: none;
+      white-space: pre;
+    }
+    #hint {
+      position: fixed;
+      right: 12px;
+      bottom: 10px;
+      font: 13px Menlo, Monaco, Consolas, monospace;
+      color: #3a3;
+      opacity: 0.8;
+      transition: opacity 2s;
+      pointer-events: none;
+    }
+    #error {
+      position: fixed;
+      top: 40%;
+      width: 100%;
+      text-align: center;
+      font: 16px Menlo, Monaco, Consolas, monospace;
+      color: #c66;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="screen"></canvas>
+  <div id="notification"></div>
+  <div id="hint">p pause &middot; space reset &middot; &uarr;&darr; speed &middot; &larr;&rarr; charset &middot; q quit</div>
+  <div id="error"></div>
+  <script src="neo.js"></script>
+</body>
+</html>
