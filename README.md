@@ -89,6 +89,10 @@ task web:dev    # Browser: serves the wasm build, rebuilds on src/ or web/
                 # changes, and the open page reloads itself automatically
 ```
 
+While `task web:dev` is running it accepts hotkeys: `o` or `Space` opens the page in the browser, `r` forces a rebuild, `h` shows the hotkey list, and `q`, `Esc`, or `Ctrl+C` stops the server.
+
+For `task dev`, quitting the app (`q` or `Esc`) also stops the watcher, and `Ctrl+C` works at any time.
+
 The web server port defaults to 8000; override with `task web:dev PORT=9000` (works for `web` and `serve` too).
 
 ## Running in the Browser (WebAssembly)

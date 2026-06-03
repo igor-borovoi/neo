@@ -5,7 +5,7 @@ zig-cache/
 
 # Task runner state
 .task/
-.dev-server.pid
+.dev-*.pid
 
 # Editor files
 *.swp

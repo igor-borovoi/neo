@@ -13,11 +13,18 @@ tasks:
   dev:
     desc: Run the native app, rebuilding and restarting it on source changes
     watch: true
+    interactive: true
+    # method none: never skip as "up to date"; the app must start on every invocation
+    method: none
     sources:
       - src/**/*.zig
       - build.zig
     cmds:
-      - zig build run -- {{.CLI_ARGS}}
+      # Quitting the app (q/Esc, exit 0) stops the watcher: $$ is the task process
+      # itself, and watch-triggered restarts cancel the command before the kill runs.
+      # Build failures skip the kill, so the watcher survives compile errors.
+      # /bin/kill because Task's shell interpreter has no kill builtin.
+      - zig build run -- {{.CLI_ARGS}} && /bin/kill -INT $$
 
   web:dev:
     desc: Serve the wasm version and rebuild on source changes (browser auto-reloads)
@@ -26,6 +33,8 @@ tasks:
       - python3 -m http.server -d zig-out/web {{.PORT}} >/dev/null 2>&1 & echo $! > .dev-server.pid
       - defer: kill $(cat .dev-server.pid) 2>/dev/null; rm -f .dev-server.pid
       - echo "Serving at http://localhost:{{.PORT}} - watching src/ and web/ for changes"
+      - bash scripts/web-dev-keys.sh "http://localhost:{{.PORT}}" 2>/dev/null & echo $! > .dev-keys.pid
+      - defer: kill $(cat .dev-keys.pid) 2>/dev/null; rm -f .dev-keys.pid
       - task --watch web:dev:rebuild
 
   web:dev:rebuild:
@@ -60,6 +69,7 @@ tasks:
 
   run:
     desc: Build and run the native executable (extra args after --)
+    interactive: true
     cmds:
       - zig build run -- {{.CLI_ARGS}}
 
@@ -69,6 +79,7 @@ tasks:
       - zig build test
 
   bench:
-    desc: Run the performance benchmark
+    desc: Run the performance benchmark (extra args after --)
+    interactive: true
     cmds:
-      - zig build bench
+      - zig build bench -- {{.CLI_ARGS}}
