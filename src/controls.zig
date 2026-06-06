@@ -10,13 +10,13 @@ pub const CHARSET_CYCLE = [_]types.Charset{
     .ENGLISH_PUNCTUATION,
     .CYRILLIC,
     .GREEK,
-    .ARABIC,
     .HEBREW,
     .DEVANAGARI,
     .BRAILLE,
     .RUNIC,
     .BINARY,
     .HEX,
+    .ARABIC,
 };
 
 pub fn charsetName(charset: types.Charset) []const u8 {
