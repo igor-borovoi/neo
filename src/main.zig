@@ -225,7 +225,7 @@ fn checkTerminalResize(cloud: *Cloud) void {
 }
 
 fn printVersion() noreturn {
-    std.debug.print("neo-zig 0.7.0 (Zig version)\n", .{});
+    std.debug.print("neo-zig 0.9.0 (Zig version)\n", .{});
     std.debug.print("Built from neo C++ version\n", .{});
     std.debug.print("Copyright (C) 2021 Stewart Reive\n", .{});
     std.debug.print("Zig port - 2025\n", .{});
