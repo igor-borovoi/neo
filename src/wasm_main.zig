@@ -13,12 +13,13 @@ pub const KEY_DOWN: u32 = 0x102;
 pub const KEY_RIGHT: u32 = 0x103;
 pub const KEY_LEFT: u32 = 0x104;
 
-const KeyResult = enum(u32) { none, pause, reset, speed, charset, quit };
+const KeyResult = enum(u32) { none, pause, reset, speed, charset, quit, color };
 
 var cloud: cloud_mod.Cloud = undefined;
 var color: types.Color = .GREEN;
 var target_fps: f32 = 20.0;
 var charset_name: []const u8 = "mix";
+var color_name: []const u8 = "green";
 
 export fn neoInit(seed_lo: u32, seed_hi: u32, color_id: u32, charset_id: u32, fps: f32) void {
     cloud = cloud_mod.Cloud.init(std.heap.wasm_allocator, .{}, .TRUECOLOR, false);
@@ -27,6 +28,7 @@ export fn neoInit(seed_lo: u32, seed_hi: u32, color_id: u32, charset_id: u32, fp
     cloud.charset = std.enums.fromInt(types.Charset, charset_id) orelse .MIX;
     charset_name = controls.charsetName(cloud.charset);
     color = std.enums.fromInt(types.Color, color_id) orelse .GREEN;
+    color_name = controls.colorName(color);
     if (fps > 0) target_fps = std.math.clamp(fps, 1.0, 100.0);
 }
 
@@ -59,6 +61,13 @@ export fn neoOnKey(code: u32, now_ms: f64) u32 {
         'p' => blk: {
             cloud.togglePause();
             break :blk .pause;
+        },
+        'c' => blk: {
+            color = controls.cycleColorForward(color);
+            cloud.setColor(color) catch break :blk .none;
+            color_name = controls.colorName(color);
+            cloud.force_draw_everything = true;
+            break :blk .color;
         },
         'q', 27 => blk: {
             cloud.raining = false;
@@ -109,6 +118,14 @@ export fn neoCharsetNamePtr() [*]const u8 {
 
 export fn neoCharsetNameLen() u32 {
     return @intCast(charset_name.len);
+}
+
+export fn neoColorNamePtr() [*]const u8 {
+    return color_name.ptr;
+}
+
+export fn neoColorNameLen() u32 {
+    return @intCast(color_name.len);
 }
 
 fn setClock(now_ms: f64) void {

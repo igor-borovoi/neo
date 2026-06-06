@@ -241,6 +241,13 @@ fn handleInput(cloud: *Cloud, target_fps: *f32, notification: *NotificationState
         'p' => {
             cloud.togglePause();
         },
+        'c' => {
+            cloud.setColor(controls.cycleColorForward(cloud.color)) catch return true;
+            cloud.force_draw_everything = true;
+            var buf: [64]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, " Color: {s} ", .{controls.colorName(cloud.color)}) catch return true;
+            notification.setMessage(msg, 5, now);
+        },
         'q', 27 => {
             cloud.raining = false;
         },

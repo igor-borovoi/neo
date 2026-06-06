@@ -33,7 +33,7 @@ Time and I/O go through `std.Io` in Zig 0.16. `src/time.zig` is a thin compat sh
 - **cloud.zig** - `Cloud` struct that orchestrates all droplets and manages the rain effect; the `Droplet` struct (individual falling streams) is nested inside it. Renders only through `term.zig`, never ncurses directly
 - **term.zig** - Rendering backend dispatcher, comptime-selected by target: `term_curses.zig` (native, owns the ncurses `@cImport`) or `term_web.zig` (wasm: cell grid + draw-op buffer + xterm-256 palette with `init_color` overrides)
 - **wasm_main.zig** - WebAssembly exports (`neoInit`/`neoReset`/`neoFrame`/`neoOnKey`/...); the JS host owns the requestAnimationFrame loop and reads draw ops as (pos, codepoint, rgb|bold) u32 triples from wasm memory
-- **controls.zig** - Charset cycle order and names, shared by main.zig and wasm_main.zig
+- **controls.zig** - Charset and color cycle order and names, shared by main.zig and wasm_main.zig
 - **types.zig** - Enums and type definitions (Charset, Color, ColorMode, etc.)
 - **benchmark.zig** - Performance benchmarking utilities
 - **test.zig** - Test suite
@@ -87,5 +87,6 @@ The `getAttr()` function in cloud.zig:1442 controls all brightness/color calcula
 - `q` or `ESC` - Quit
 - `p` - Pause/Resume
 - `Space` - Reset the rain effect
-- `↑` / `↓` - Increase/decrease speed (FPS, 1–100)
+- `↑` / `↓` - Increase/decrease speed (FPS, 1-100)
 - `←` / `→` - Cycle through charsets
+- `c` - Cycle through colors

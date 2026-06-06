@@ -166,15 +166,15 @@ function onKey(e) {
   switch (result) {
     case 2: hideNotification(); break;
     case 3: notify(" Speed: " + Math.round(wasm.neoTargetFps()) + " "); break;
-    case 4: notify(" Charset: " + charsetName() + " "); break;
+    case 4: notify(" Charset: " + wasmString(wasm.neoCharsetNamePtr(), wasm.neoCharsetNameLen()) + " "); break;
     case 5: notify(" Stopped - press Space to restart ", 0); break;
+    case 6: notify(" Color: " + wasmString(wasm.neoColorNamePtr(), wasm.neoColorNameLen()) + " "); break;
   }
   if (result !== 0) e.preventDefault();
 }
 
-function charsetName() {
-  const bytes = new Uint8Array(wasm.memory.buffer, wasm.neoCharsetNamePtr(), wasm.neoCharsetNameLen());
-  return new TextDecoder().decode(bytes);
+function wasmString(ptr, len) {
+  return new TextDecoder().decode(new Uint8Array(wasm.memory.buffer, ptr, len));
 }
 
 function notify(text, timeoutMs = 5000) {

@@ -111,7 +111,7 @@ python3 -m http.server -d zig-out/web 8000
 # open http://localhost:8000
 ```
 
-No ncurses needed for this target; a small JS host (`web/neo.js`) drives the frame loop, draws the cell updates emitted by the wasm module, and forwards keyboard input. All interactive controls work in the browser (pause, reset, speed, charset cycling).
+No ncurses needed for this target; a small JS host (`web/neo.js`) drives the frame loop, draws the cell updates emitted by the wasm module, and forwards keyboard input. All interactive controls work in the browser (pause, reset, speed, charset and color cycling).
 
 Options are passed via URL query parameters:
 
@@ -199,6 +199,7 @@ http://localhost:8000/?color=gold&charset=katakana&speed=30&seed=42
 - `Space` - Reset
 - `↑` / `↓` - Increase/decrease speed
 - `←` / `→` - Cycle through charsets
+- `c` - Cycle through colors
 
 ### All Options
 
