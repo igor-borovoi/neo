@@ -18,7 +18,7 @@
   - Cyrillic (Russian)
   - Greek
   - Hebrew
-  - Arabic *(flows left-to-right instead of top-to-bottom)*
+  - Arabic
   - Devanagari (Hindi)
   - Braille
   - Runic
