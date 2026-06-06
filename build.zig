@@ -49,6 +49,8 @@ fn ncursesLinkArgs(b: *std.Build, is_macos: bool) []const []const u8 {
 
 fn linkNcurses(b: *std.Build, compile: *std.Build.Step.Compile) void {
     const mod = compile.root_module;
+    // Windows uses the Win32 console backend; no curses library involved.
+    if (compile.rootModuleTarget().os.tag == .windows) return;
     const is_macos = compile.rootModuleTarget().os.tag == .macos;
     if (is_macos) {
         mod.linkSystemLibrary("ncurses", .{});

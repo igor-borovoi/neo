@@ -1,11 +1,7 @@
 const std = @import("std");
-const c = @cImport({
-    @cDefine("_XOPEN_SOURCE_EXTENDED", "1");
-    @cInclude("ncurses.h");
-    @cInclude("locale.h");
-});
 
 const types = @import("types.zig");
+const term = @import("term.zig");
 const cloud_mod = @import("cloud.zig");
 const Cloud = cloud_mod.Cloud;
 const time = @import("time.zig");
@@ -37,72 +33,6 @@ const NotificationState = struct {
         return self.message[0..self.message_len];
     }
 };
-
-pub fn die(comptime fmt: []const u8, args: anytype) noreturn {
-    std.debug.print(fmt, args);
-    std.process.exit(1);
-}
-
-fn initCurses(usr_color_mode: types.ColorMode) types.ColorMode {
-    _ = c.initscr();
-    if (c.cbreak() != c.OK) {
-        // In headless environments, cbreak might fail but we can continue
-        std.debug.print("Warning: cbreak() failed, continuing anyway\n", .{});
-    }
-
-    // Add a simple check to avoid ncurses issues in headless environments
-    // For testing, we'll use default values if ncurses fails
-    if (c.LINES <= 0 or c.COLS <= 0) {
-        // Simulate terminal dimensions for testing
-        c.LINES = 24;
-        c.COLS = 80;
-    }
-    _ = c.curs_set(0);
-    if (c.noecho() != c.OK) {
-        die("noecho() failed\n", .{});
-    }
-    if (c.nodelay(c.stdscr, true) != c.OK) {
-        die("nodelay() failed\n", .{});
-    }
-    if (c.keypad(c.stdscr, true) != c.OK) {
-        die("keypad() failed\n", .{});
-    }
-
-    if (usr_color_mode != .MONO and c.has_colors()) {
-        _ = c.start_color();
-    }
-
-    const color_mode = pickColorMode(usr_color_mode);
-    if (c.clear() != c.OK) {
-        die("clear() failed\n", .{});
-    }
-    if (c.refresh() != c.OK) {
-        die("refresh() failed\n", .{});
-    }
-
-    return color_mode;
-}
-
-fn cleanup() void {
-    _ = c.endwin();
-}
-
-fn pickColorMode(usr_color_mode: types.ColorMode) types.ColorMode {
-    if (usr_color_mode != .INVALID) {
-        return usr_color_mode;
-    }
-    if (!c.has_colors()) {
-        return .MONO;
-    }
-    if (c.COLORS >= 256) {
-        if (c.can_change_color()) {
-            return .TRUECOLOR;
-        } else {
-            return .COLOR256;
-        }
-    }
-    return .COLOR16;
-}
 
 const Column = struct {
     y: f32, // Current vertical position
@@ -227,71 +157,70 @@ fn simpleMatrixMode(target_fps: f32, io: std.Io) !void {
     }
 }
 
-fn handleInput(cloud: *Cloud, target_fps: *f32, notification: *NotificationState, now: time.Instant) bool {
-    const ch = c.getch();
-    if (ch == -1) return false;
+fn resetCloud(cloud: *Cloud) void {
+    cloud.reset() catch |err| {
+        std.debug.print("Reset failed: {}\n", .{err});
+    };
+    cloud.force_draw_everything = true;
+}
 
-    switch (ch) {
-        c.KEY_RESIZE, ' ' => {
-            cloud.reset() catch |err| {
-                std.debug.print("Reset failed: {}\n", .{err});
-            };
-            cloud.force_draw_everything = true;
-        },
-        'p' => {
-            cloud.togglePause();
-        },
-        'c' => {
-            cloud.setColor(controls.cycleColorForward(cloud.color)) catch return true;
-            cloud.force_draw_everything = true;
-            var buf: [64]u8 = undefined;
-            const msg = std.fmt.bufPrint(&buf, " Color: {s} ", .{controls.colorName(cloud.color)}) catch return true;
-            notification.setMessage(msg, 5, now);
-        },
-        'q', 27 => {
-            cloud.raining = false;
-        },
-        c.KEY_UP => {
+fn handleInput(cloud: *Cloud, target_fps: *f32, notification: *NotificationState, now: time.Instant) bool {
+    const key = term.getKey();
+    if (key == .none) return false;
+
+    switch (key) {
+        .none => unreachable,
+        .resize => resetCloud(cloud),
+        .up => {
             target_fps.* = @min(target_fps.* + 1.0, 100.0);
             var buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&buf, " Speed: {d:.0} ", .{target_fps.*}) catch return true;
             notification.setMessage(msg, 5, now);
         },
-        c.KEY_DOWN => {
+        .down => {
             target_fps.* = @max(target_fps.* - 1.0, 1.0);
             var buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&buf, " Speed: {d:.0} ", .{target_fps.*}) catch return true;
             notification.setMessage(msg, 5, now);
         },
-        c.KEY_RIGHT => {
+        .right => {
             cloud.setCharset(cycleCharsetForward(cloud.charset));
             var buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&buf, " Charset: {s} ", .{charsetName(cloud.charset)}) catch return true;
             notification.setMessage(msg, 5, now);
         },
-        c.KEY_LEFT => {
+        .left => {
             cloud.setCharset(cycleCharsetBackward(cloud.charset));
             var buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&buf, " Charset: {s} ", .{charsetName(cloud.charset)}) catch return true;
             notification.setMessage(msg, 5, now);
         },
-        else => {},
+        .char => |ch| switch (ch) {
+            ' ' => resetCloud(cloud),
+            'p' => cloud.togglePause(),
+            'c' => {
+                cloud.setColor(controls.cycleColorForward(cloud.color)) catch return true;
+                cloud.force_draw_everything = true;
+                var buf: [64]u8 = undefined;
+                const msg = std.fmt.bufPrint(&buf, " Color: {s} ", .{controls.colorName(cloud.color)}) catch return true;
+                notification.setMessage(msg, 5, now);
+            },
+            // 3 is Ctrl+C delivered as a raw key on Windows
+            'q', 27, 3 => cloud.raining = false,
+            else => {},
+        },
     }
 
     return true;
 }
 
 fn checkTerminalResize(cloud: *Cloud) void {
-    // Check if terminal size changed
-    const new_lines: u16 = @intCast(c.LINES);
-    const new_cols: u16 = @intCast(c.COLS);
+    const new_lines = term.lines();
+    const new_cols = term.cols();
 
     if (new_lines != cloud.lines or new_cols != cloud.cols) {
-        cloud.reset() catch |err| {
-            std.debug.print("Reset failed: {}\n", .{err});
-        };
-        cloud.force_draw_everything = true;
-        _ = c.clear();
+        resetCloud(cloud);
+        term.clearScreen();
     }
 }
 
@@ -524,44 +453,10 @@ pub fn main(init: std.process.Init) !void {
         printVersion();
     }
 
-    // Set locale first for proper character handling
-    _ = c.setlocale(c.LC_ALL, "");
-    const locale = c.setlocale(c.LC_ALL, "");
-
-    // Initialize ncurses - MUST call initscr() first before any other ncurses functions
-    _ = c.initscr();
-    defer cleanup();
-
-    // Now we can check colors and set up ncurses properly
-    const has_color_support = c.has_colors();
-    if (has_color_support) {
-        _ = c.start_color();
-    }
-
-    if (c.cbreak() != c.OK) {
-        std.debug.print("Warning: cbreak() failed\n", .{});
-    }
-    _ = c.curs_set(0);
-    if (c.noecho() != c.OK) {
-        die("noecho() failed\n", .{});
-    }
-    if (c.nodelay(c.stdscr, true) != c.OK) {
-        die("nodelay() failed\n", .{});
-    }
-    if (c.keypad(c.stdscr, true) != c.OK) {
-        die("keypad() failed\n", .{});
-    }
-
-    if (c.clear() != c.OK) {
-        die("clear() failed\n", .{});
-    }
-    if (c.refresh() != c.OK) {
-        die("refresh() failed\n", .{});
-    }
-
-    // Pick color mode based on terminal capabilities
-    const color_mode: types.ColorMode = if (has_color_support) pickColorMode(usr_color_mode) else .MONO;
-    const use_ascii = if (locale != null) std.mem.indexOf(u8, std.mem.span(locale), "UTF") == null else false;
+    // Initialize the terminal backend; resolves the effective color mode
+    const color_mode = term.initTerm(usr_color_mode);
+    defer term.endTerm();
+    const use_ascii = term.wantsAscii();
 
     // Create cloud
     const allocator = init.gpa;
@@ -652,15 +547,11 @@ pub fn main(init: std.process.Init) !void {
         // Notification overlay (takes precedence over benchmark)
         const notification_active = notification.isActive(cur_time);
         if (notification_active) {
-            _ = c.move(0, 0);
-            _ = c.clrtoeol();
-            _ = c.attr_set(c.A_BOLD | c.A_REVERSE, 0, null);
-            const msg = notification.getMessage();
-            _ = c.mvprintw(0, 0, " %s ", msg.ptr);
+            term.clearLine(0);
+            term.printOverlay(0, 0, notification.getMessage());
             notification_was_active = true;
         } else if (notification_was_active) {
-            _ = c.move(0, 0);
-            _ = c.clrtoeol();
+            term.clearLine(0);
             notification_was_active = false;
         } else if (benchmark_mode) {
             // Benchmark overlay
@@ -683,12 +574,11 @@ pub fn main(init: std.process.Init) !void {
             const current_fps = if (frame_time_ns > 1) 1.0e9 / @as(f64, @floatFromInt(frame_time_ns)) else 1.0;
 
             // Draw benchmark overlay at start of first row with reverse video
-            _ = c.attr_set(c.A_BOLD | c.A_REVERSE, 0, null);
-            const fps_c: f64 = current_fps;
-            const elapsed_c: f64 = bench_elapsed_sec;
-            const total_c: f64 = bench_total_sec;
-            const droplets_c: c_int = @intCast(active_droplets);
-            _ = c.mvprintw(0, 5, " %5.0f/s D:%3d %.1f/%.0fs ", fps_c, droplets_c, elapsed_c, total_c);
+            var overlay_buf: [80]u8 = undefined;
+            const overlay = std.fmt.bufPrint(&overlay_buf, " {d:5.0}/s D:{d:3} {d:.1}/{d:.0}s ", .{
+                current_fps, active_droplets, bench_elapsed_sec, bench_total_sec,
+            }) catch "";
+            term.printOverlay(0, 5, overlay);
 
             // Track frame time (excluding overlay drawing)
             const frame_end = time.Instant.now(init.io);
@@ -702,9 +592,7 @@ pub fn main(init: std.process.Init) !void {
             }
         }
 
-        if (c.refresh() != c.OK) {
-            die("refresh() failed\n", .{});
-        }
+        term.refresh();
 
         const elapsed = cur_time.since(prev_time);
 
@@ -725,7 +613,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Show benchmark results
     if (benchmark_mode and bench_frame_count > 0) {
-        _ = c.endwin();
+        term.endTerm();
 
         // Calculate statistics
         var total_frame_ns: u64 = 0;
@@ -754,8 +642,8 @@ pub fn main(init: std.process.Init) !void {
         const actual_duration = @as(f64, @floatFromInt(actual_duration_ns)) / 1.0e9;
         const throughput = @as(f64, @floatFromInt(bench_frame_count)) / actual_duration;
 
-        const cols: u32 = @intCast(c.COLS);
-        const lines: u32 = @intCast(c.LINES);
+        const cols: u32 = cloud.cols;
+        const lines: u32 = cloud.lines;
 
         var bench_buf: [512]u8 = undefined;
         var bench_fba = std.heap.FixedBufferAllocator.init(&bench_buf);

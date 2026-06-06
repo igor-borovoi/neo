@@ -46,13 +46,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/igor-borovoi/neo/main/run.sh
 
 Supports macOS (ARM) and Linux (x86\_64 & aarch64).
 
+On Windows, download `neo-zig-windows-x86_64.exe` (or `-aarch64`) from the [latest release](https://github.com/igor-borovoi/neo/releases/latest) and run it from Windows Terminal.
+
 ## Prerequisites
 
-**neo-zig** works on Linux and other UNIX-like operating systems (macOS, FreeBSD). Windows is not supported natively but may work via WSL.
+**neo-zig** works on Linux and other UNIX-like operating systems (macOS, FreeBSD) via ncurses, and natively on Windows 10+ via the built-in console VT support (Windows Terminal recommended).
 
 Required (only if building from source):
 - [Zig](https://ziglang.org/download/) 0.16.0
-- ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch)
+- ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch); not needed on Windows
 
 For Unicode characters, use a font that supports the character set you want to display and ensure your locale is set to UTF-8.
 

@@ -20,6 +20,15 @@ jobs:
             target-name: linux-aarch64
           - os: macos-latest
             target-name: macos-aarch64
+          # Cross-compiled; the Windows backend has no C dependencies
+          - os: ubuntu-latest
+            target-name: windows-x86_64
+            build-args: -Dtarget=x86_64-windows
+            bin-ext: .exe
+          - os: ubuntu-latest
+            target-name: windows-aarch64
+            build-args: -Dtarget=aarch64-windows
+            bin-ext: .exe
 
     runs-on: ${{ matrix.os }}
     name: Build ${{ matrix.target-name }}
@@ -38,22 +47,22 @@ jobs:
           echo "/usr/local/zig" >> "$GITHUB_PATH"
 
       - name: Install ncurses (Linux only)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.build-args == ''
         run: sudo apt-get update && sudo apt-get install -y libncursesw5-dev
 
       - name: Build
-        run: zig build -Doptimize=ReleaseFast
+        run: zig build -Doptimize=ReleaseFast ${{ matrix.build-args }}
 
       - name: Stage binary
         run: |
           mkdir -p dist
-          cp zig-out/bin/neo-zig dist/neo-zig-${{ matrix.target-name }}
+          cp zig-out/bin/neo-zig${{ matrix.bin-ext }} dist/neo-zig-${{ matrix.target-name }}${{ matrix.bin-ext }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: neo-zig-${{ matrix.target-name }}
-          path: dist/neo-zig-${{ matrix.target-name }}
+          path: dist/neo-zig-${{ matrix.target-name }}${{ matrix.bin-ext }}
           if-no-files-found: error
 
   release:
@@ -86,4 +95,6 @@ jobs:
           \`\`\`" \
             dist/neo-zig-linux-x86_64 \
             dist/neo-zig-linux-aarch64 \
-            dist/neo-zig-macos-aarch64
+            dist/neo-zig-macos-aarch64 \
+            dist/neo-zig-windows-x86_64.exe \
+            dist/neo-zig-windows-aarch64.exe

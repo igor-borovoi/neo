@@ -113,6 +113,16 @@ pub const MsgChr = struct {
     }
 };
 
+pub const Key = union(enum) {
+    none,
+    up,
+    down,
+    left,
+    right,
+    resize,
+    char: u8,
+};
+
 pub const CHAR_POOL_SIZE: usize = 2048;
 pub const GLITCH_POOL_SIZE: usize = 1024;
 pub const MAX_DROPLETS_PER_COL: u8 = 3;

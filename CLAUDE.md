@@ -19,7 +19,7 @@ zig build wasm         # Build the browser bundle (output: ./zig-out/web/)
 
 A `Taskfile.yml` wraps these for the [Task](https://taskfile.dev) runner: `task build|run|test|bench|wasm|serve|web`. Plain `task` (default) builds the wasm bundle and serves it at http://localhost:8000 (`PORT=...` to override). `task dev` (native) and `task web:dev` (browser) are watch modes that rebuild on source changes; the web page auto-reloads via a localhost-only HEAD poll in `web/neo.js`.
 
-**Dependencies**: Zig 0.16.0, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch, built-in on macOS). The wasm target needs no ncurses; serve `zig-out/web/` over HTTP (e.g. `python3 -m http.server -d zig-out/web`).
+**Dependencies**: Zig 0.16.0, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch, built-in on macOS). The wasm and Windows targets need no ncurses; Windows cross-compiles with `zig build -Dtarget=x86_64-windows` (or `aarch64-windows`). Serve `zig-out/web/` over HTTP for the wasm build (e.g. `python3 -m http.server -d zig-out/web`).
 
 On Linux, `build.zig` compiles to an object via Zig and links via the system `cc`. This sidesteps an incompatibility where Zig 0.16's bundled linkers (LLD and self-hosted) cannot relocate `.sframe` sections in GCC 16+ CRT files. macOS/other targets link normally via Zig.
 
@@ -29,9 +29,9 @@ Time and I/O go through `std.Io` in Zig 0.16. `src/time.zig` is a thin compat sh
 
 ### Core Components
 
-- **main.zig** - Native entry point, ncurses setup, argument parsing, main event loop
+- **main.zig** - Native entry point, argument parsing, main event loop; terminal-agnostic, all terminal access goes through `term.zig` (`initTerm`/`endTerm`/`getKey`/`refresh`/overlay helpers)
 - **cloud.zig** - `Cloud` struct that orchestrates all droplets and manages the rain effect; the `Droplet` struct (individual falling streams) is nested inside it. Renders only through `term.zig`, never ncurses directly
-- **term.zig** - Rendering backend dispatcher, comptime-selected by target: `term_curses.zig` (native, owns the ncurses `@cImport`) or `term_web.zig` (wasm: cell grid + draw-op buffer + xterm-256 palette with `init_color` overrides)
+- **term.zig** - Rendering backend dispatcher, comptime-selected by target: `term_curses.zig` (Unix-like, owns the ncurses `@cImport`), `term_win.zig` (Windows: Win32 console API + VT escape sequences, no ncurses), or `term_web.zig` (wasm: cell grid + draw-op buffer). The non-curses backends share `palette.zig` (xterm-256 -> RGB with `init_color` overrides)
 - **wasm_main.zig** - WebAssembly exports (`neoInit`/`neoReset`/`neoFrame`/`neoOnKey`/...); the JS host owns the requestAnimationFrame loop and reads draw ops as (pos, codepoint, rgb|bold) u32 triples from wasm memory
 - **controls.zig** - Charset and color cycle order and names, shared by main.zig and wasm_main.zig
 - **types.zig** - Enums and type definitions (Charset, Color, ColorMode, etc.)
@@ -65,7 +65,7 @@ main() → initCurses() → Cloud.init() → Cloud.reset()
 - `Cloud.spawnDroplets()` - Creates new droplets based on spawn rate
 - `Droplet.advance()` - Updates droplet position with fractional tracking
 - `Droplet.draw()` - Renders droplet characters via the `term` backend
-- `pickColorMode()` - Detects terminal color capabilities
+- `term.initTerm()` - Per-backend terminal setup; detects and returns the effective color mode
 
 ## Visual Effects
 
