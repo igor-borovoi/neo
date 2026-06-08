@@ -69,14 +69,15 @@ fn linkNcurses(b: *std.Build, compile: *std.Build.Step.Compile) void {
 /// can't relocate. The system linker handles them.
 ///
 /// Returns the LazyPath of the linked executable so callers can install/run it.
-fn linuxExeViaCc(b: *std.Build, name: []const u8, mod: *std.Build.Module) std.Build.LazyPath {
+fn linuxExeViaCc(b: *std.Build, name: []const u8, mod: *std.Build.Module, link_ncurses: bool) std.Build.LazyPath {
     const obj = b.addObject(.{ .name = name, .root_module = mod });
     obj.root_module.link_libc = true;
 
     const link = b.addSystemCommand(&.{"cc"});
     link.addFileArg(obj.getEmittedBin());
     const out = link.addPrefixedOutputFileArg("-o", name);
-    link.addArgs(ncursesLinkArgs(b, false));
+    // The dev file server needs no ncurses; everything else does.
+    link.addArgs(if (link_ncurses) ncursesLinkArgs(b, false) else &.{"-lm"});
     return out;
 }
 
@@ -129,17 +130,28 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Static file server for the wasm dev workflow. Needs no ncurses — only
+    // std.Io networking.
+    const serve_module = b.createModule(.{
+        .root_source_file = b.path("src/serve.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     if (is_linux) {
         // cc-linked binaries
-        const exe_path = linuxExeViaCc(b, "neo-zig", root_module);
+        const exe_path = linuxExeViaCc(b, "neo-zig", root_module, true);
         const install_exe = addArtifactInstall(b, "neo-zig", exe_path);
         b.getInstallStep().dependOn(&install_exe.step);
 
-        const test_path = linuxExeViaCc(b, "test-neo", test_module);
+        const test_path = linuxExeViaCc(b, "test-neo", test_module, true);
         const install_test = addArtifactInstall(b, "test-neo", test_path);
 
-        const bench_path = linuxExeViaCc(b, "benchmark-neo", bench_module);
+        const bench_path = linuxExeViaCc(b, "benchmark-neo", bench_module, true);
         const install_bench = addArtifactInstall(b, "benchmark-neo", bench_path);
+
+        const serve_path = linuxExeViaCc(b, "neo-serve", serve_module, false);
+        const install_serve = addArtifactInstall(b, "neo-serve", serve_path);
 
         const run_cmd = std.Build.Step.Run.create(b, "run neo-zig");
         run_cmd.addFileArg(exe_path);
@@ -160,6 +172,17 @@ pub fn build(b: *std.Build) void {
         if (b.args) |args| bench_cmd.addArgs(args);
         const bench_step = b.step("bench", "Run performance benchmark");
         bench_step.dependOn(&bench_cmd.step);
+
+        const serve_cmd = std.Build.Step.Run.create(b, "run neo-serve");
+        serve_cmd.addFileArg(serve_path);
+        if (b.args) |args| serve_cmd.addArgs(args);
+        const serve_step = b.step("serve", "Serve the wasm bundle over HTTP");
+        serve_step.dependOn(&serve_cmd.step);
+
+        // Build-and-install the server binary without running it, so dev tooling
+        // can launch zig-out/bin/neo-serve directly and manage its lifetime.
+        const serve_bin_step = b.step("serve-bin", "Build the wasm dev file server binary");
+        serve_bin_step.dependOn(&install_serve.step);
     } else {
         const exe = b.addExecutable(.{ .name = "neo-zig", .root_module = root_module });
         linkNcurses(b, exe);
@@ -183,5 +206,16 @@ pub fn build(b: *std.Build) void {
         if (b.args) |args| bench_cmd.addArgs(args);
         const bench_step = b.step("bench", "Run performance benchmark");
         bench_step.dependOn(&bench_cmd.step);
+
+        const serve_exe = b.addExecutable(.{ .name = "neo-serve", .root_module = serve_module });
+        const serve_cmd = b.addRunArtifact(serve_exe);
+        if (b.args) |args| serve_cmd.addArgs(args);
+        const serve_step = b.step("serve", "Serve the wasm bundle over HTTP");
+        serve_step.dependOn(&serve_cmd.step);
+
+        // Build-and-install the server binary without running it, so dev tooling
+        // can launch zig-out/bin/neo-serve directly and manage its lifetime.
+        const serve_bin_step = b.step("serve-bin", "Build the wasm dev file server binary");
+        serve_bin_step.dependOn(&b.addInstallArtifact(serve_exe, .{}).step);
     }
 }

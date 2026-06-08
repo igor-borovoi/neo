@@ -15,11 +15,12 @@ zig build run -- -c gold --charset katakana  # Run with arguments
 zig build test         # Run the test suite
 zig build bench        # Run performance benchmark
 zig build wasm         # Build the browser bundle (output: ./zig-out/web/)
+zig build serve -- zig-out/web 8000  # Serve the wasm bundle over HTTP (Zig static server, no Python)
 ```
 
 A `Taskfile.yml` wraps these for the [Task](https://taskfile.dev) runner: `task build|run|test|bench|wasm|serve|web`. Plain `task` (default) builds the wasm bundle and serves it at http://localhost:8000 (`PORT=...` to override). `task dev` (native) and `task web:dev` (browser) are watch modes that rebuild on source changes; the web page auto-reloads via a localhost-only HEAD poll in `web/neo.js`.
 
-**Dependencies**: Zig 0.16.0, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch, built-in on macOS). The wasm and Windows targets need no ncurses; Windows cross-compiles with `zig build -Dtarget=x86_64-windows` (or `aarch64-windows`). Serve `zig-out/web/` over HTTP for the wasm build (e.g. `python3 -m http.server -d zig-out/web`).
+**Dependencies**: Zig 0.16.0, ncurses development library (`libncurses-dev` on Debian/Ubuntu, `ncurses` on Arch, built-in on macOS). The wasm and Windows targets need no ncurses; Windows cross-compiles with `zig build -Dtarget=x86_64-windows` (or `aarch64-windows`). Serve `zig-out/web/` over HTTP for the wasm build with the bundled Zig server: `zig build serve -- zig-out/web 8000` (or `task serve`). It is a minimal static file server (`src/serve.zig`) supporting GET/HEAD — no Python or other runtime needed.
 
 On Linux, `build.zig` compiles to an object via Zig and links via the system `cc`. This sidesteps an incompatibility where Zig 0.16's bundled linkers (LLD and self-hosted) cannot relocate `.sframe` sections in GCC 16+ CRT files. macOS/other targets link normally via Zig.
 

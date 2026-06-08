@@ -28,14 +28,33 @@ tasks:
 
   web:dev:
     desc: Serve the wasm version and rebuild on source changes (browser auto-reloads)
+    # Three long-lived processes run as parallel deps (server, file watcher,
+    # hotkey listener). Each is a foreground child of Task, so none are
+    # backgrounded inside Task's shell — that shell (mvdan/sh) neither supports
+    # `$!` nor reliably keeps `&` jobs alive, which left the port unserved.
+    # Ctrl+C (or the listener's `q`) stops all three via Task's signal handling.
+    deps:
+      - web:dev:server
+      - web:dev:watch
+      - web:dev:keys
+
+  web:dev:server:
+    internal: true
     deps: [wasm]
     cmds:
-      - python3 -m http.server -d zig-out/web {{.PORT}} >/dev/null 2>&1 & echo $! > .dev-server.pid
-      - defer: kill $(cat .dev-server.pid) 2>/dev/null; rm -f .dev-server.pid
+      - zig build serve-bin
       - echo "Serving at http://localhost:{{.PORT}} - watching src/ and web/ for changes"
-      - bash scripts/web-dev-keys.sh "http://localhost:{{.PORT}}" 2>/dev/null & echo $! > .dev-keys.pid
-      - defer: kill $(cat .dev-keys.pid) 2>/dev/null; rm -f .dev-keys.pid
+      - zig-out/bin/neo-serve zig-out/web {{.PORT}}
+
+  web:dev:watch:
+    internal: true
+    cmds:
       - task --watch web:dev:rebuild
+
+  web:dev:keys:
+    internal: true
+    cmds:
+      - bash scripts/web-dev-keys.sh "http://localhost:{{.PORT}}" 2>/dev/null
 
   web:dev:rebuild:
     sources:
@@ -54,8 +73,7 @@ tasks:
   serve:
     desc: Serve an already-built wasm bundle at http://localhost:{{.PORT}}
     cmds:
-      - echo "Serving at http://localhost:{{.PORT}} (Ctrl+C to stop)"
-      - python3 -m http.server -d zig-out/web {{.PORT}}
+      - zig build serve -- zig-out/web {{.PORT}}
 
   wasm:
     desc: Build the WebAssembly bundle into zig-out/web
